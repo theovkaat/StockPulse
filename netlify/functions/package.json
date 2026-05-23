@@ -1,0 +1,9 @@
+{
+  "name": "stockpulse-functions",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
+    "stripe": "^22.1.1"
+  }
+}
