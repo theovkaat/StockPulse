@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
@@ -842,6 +841,165 @@ function AIAnalyseTab({ user, prices }: { user: User; prices: Record<string, Pri
   );
 }
 
+// ─── AI CHAT TAB ──────────────────────────────────────────────────────────────
+interface ChatMessage { role: "user" | "assistant"; content: string; }
+
+const SUGGESTED_QUESTIONS = [
+  "Should I buy more ASML right now?",
+  "Is my portfolio too risky?",
+  "Which position has the best outlook?",
+  "Am I diversified enough?",
+  "What would you sell first?",
+  "How is my portfolio performing vs the market?",
+];
+
+function AIChatTab({ user, prices }: { user: User; prices: Record<string, PriceData> }) {
+  const [messages, setMessages] = useStorage<ChatMessage[]>(`chat_${user.email}`, []);
+  const [input, setInput]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const bottomRef               = useRef<HTMLDivElement>(null);
+  const [holdings] = useStorage<Holding[]>(`holdings_${user.email}`, []);
+
+  const portfolioSummary = holdings.length === 0
+    ? "No positions added yet."
+    : holdings.map(h => {
+        const p = prices[h.ticker] ?? { price: h.avgBuy, change: 0 };
+        const pct = ((p.price - h.avgBuy) / h.avgBuy * 100).toFixed(1);
+        return `${h.ticker} (${h.name}): ${h.shares} shares, avg buy €${h.avgBuy}, current €${p.price.toFixed(2)}, P&L: ${pct}%, today: ${p.change >= 0 ? "+" : ""}${p.change.toFixed(2)}%`;
+      }).join("\n");
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    if (user.plan === "free") { alert("AI Chat is available in Pro and Elite. Upgrade your plan."); return; }
+    setInput("");
+    const userMsg: ChatMessage = { role: "user", content: msg };
+    setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+    try {
+      const history = [...messages.slice(-10), userMsg].map(m => ({ role: m.role, content: m.content }));
+      const resp = await fetch("/.netlify/functions/ai-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }),
+      });
+      const data = await resp.json();
+      const reply = data.result || data.error || "Sorry, I could not respond.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
+    }
+    setLoading(false);
+  };
+
+  const isPro = user.plan !== "free";
+
+  return (
+    <div style={{ maxWidth: 760, display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", minHeight: 500 }}>
+      <div className="card anim-fadeUp" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}>
+        <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, animation: "glow 3s ease infinite" }}>{"🤖"}</div>
+            <div>
+              <div className="syne" style={{ fontWeight: 700, fontSize: 15 }}>StockPulse AI Advisor</div>
+              <div style={{ fontSize: 11, color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+                <Dot color="#10b981" ping={true} /> Online · Knows your portfolio in real time
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {messages.length > 0 && (
+              <button className="btn-ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setMessages([])}>Clear chat</button>
+            )}
+            {!isPro && <Badge color="#f59e0b">PRO REQUIRED</Badge>}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", background: "#111827", border: "1px solid #1a2744", borderTop: "none", borderBottom: "none", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: "center", padding: "32px 0" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>{"💬"}</div>
+            <div className="syne" style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Ask me anything about your portfolio</div>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>I know your holdings, current prices and P&L in real time.</div>
+            {isPro ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                {SUGGESTED_QUESTIONS.map((q, i) => (
+                  <button key={i} onClick={() => sendMessage(q)}
+                    style={{ background: "#3b82f618", border: "1px solid #3b82f644", borderRadius: 20, padding: "7px 14px", fontSize: 12, color: "#3b82f6", cursor: "pointer", transition: "all 0.2s" }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#f59e0b", background: "#f59e0b22", padding: "12px 20px", borderRadius: 10, display: "inline-block" }}>
+                Upgrade to Pro or Elite to chat with your AI advisor
+              </div>
+            )}
+          </div>
+        )}
+
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.3s ease" }}>
+            {m.role === "assistant" && (
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10, flexShrink: 0, alignSelf: "flex-end" }}>{"🤖"}</div>
+            )}
+            <div style={{
+              maxWidth: "75%", padding: "12px 16px",
+              borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+              background: m.role === "user" ? "#3b82f6" : "#0d1117",
+              border: m.role === "assistant" ? "1px solid #1a2744" : "none",
+              fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap",
+              color: m.role === "user" ? "white" : "#f1f5f9",
+            }}>
+              {m.content}
+            </div>
+            {m.role === "user" && (
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#3b82f633", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: 10, flexShrink: 0, alignSelf: "flex-end", color: "#3b82f6", fontWeight: 700 }}>
+                {user.name[0].toUpperCase()}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, animation: "fadeIn 0.3s ease" }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{"🤖"}</div>
+            <div style={{ background: "#0d1117", border: "1px solid #1a2744", borderRadius: "18px 18px 18px 4px", padding: "12px 18px", display: "flex", gap: 5, alignItems: "center" }}>
+              {[0, 1, 2].map(j => (
+                <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: "#3b82f6", animation: "pulse 1.2s " + (j * 0.2) + "s ease infinite" }} />
+              ))}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={{ background: "#111827", border: "1px solid #1a2744", borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-end" }}>
+        <textarea
+          className="input-field"
+          placeholder={isPro ? "Ask anything about your portfolio... (Enter to send)" : "Upgrade to Pro to chat with AI..."}
+          value={input}
+          disabled={!isPro}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+          style={{ resize: "none", height: 44, lineHeight: "24px", paddingTop: 10, flex: 1, opacity: isPro ? 1 : 0.5 }}
+          rows={1}
+        />
+        <button className="btn-primary" onClick={() => sendMessage()} disabled={loading || !input.trim() || !isPro}
+          style={{ height: 44, width: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+          {loading ? <Spinner /> : "↑"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
 function SettingsTab({ user, onUpgrade, onLogout }: { user: User; onUpgrade: (plan: string) => void; onLogout: () => void }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
@@ -926,6 +1084,7 @@ export default function App() {
     { id: "markt",     label: "🌐 Market" },
     { id: "alerts",    label: "🔔 Alerts" },
     { id: "ai",        label: "🤖 AI Analysis", pro: true },
+    { id: "chat",      label: "💬 AI Chat", pro: true },
     { id: "settings",  label: "⚙️ Account" },
   ];
 
@@ -974,6 +1133,7 @@ export default function App() {
         {tab === "markt"     && <MarketTab    prices={prices} lastUpdated={lastUpdated} onRefresh={refresh} />}
         {tab === "alerts"    && <AlertsTab    prices={prices} user={user!} />}
         {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
+        {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
         {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onLogout={handleLogout} />}
       </div>
     </div>
