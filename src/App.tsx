@@ -667,7 +667,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
 }
 
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function SettingsTab({ user, onUpgrade, onLogout }: { user: Profile; onUpgrade: (plan: string) => void; onLogout: () => void }) {
+function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout }: { user: Profile; onUpgrade: (plan: string) => void; onPromoApplied: (plan: string) => void; onLogout: () => void }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg]   = useState("");
@@ -687,7 +687,7 @@ function SettingsTab({ user, onUpgrade, onLogout }: { user: Profile; onUpgrade: 
     if (plan === user.plan) { setPromoMsg("✅ You already have this plan!"); return; }
     setPromoLoading(true);
     await supabase.from("profiles").update({ plan }).eq("id", user.id);
-    onUpgrade(plan);
+    onPromoApplied(plan);
     setPromoMsg(`🎉 Code applied! You are now on the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan.`);
     setPromoLoading(false);
     setPromoCode("");
@@ -775,6 +775,10 @@ export default function App() {
 
   const handleAuth = (u: Profile) => { setUser(u); setPage("app"); };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("landing"); };
+  const handlePromoApplied = (planId: string) => {
+    setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
+  };
+
   const handleUpgrade = async (planId: string) => {
     // If downgrading to free or plan set via promo code, just update state
     if (planId === "free") {
@@ -836,7 +840,7 @@ export default function App() {
       {tab === "alerts"    && <AlertsTab    prices={prices} user={user!} />}
       {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
       {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
-      {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onLogout={handleLogout} />}
+      {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} />}
     </div>
   </div>;
 }
