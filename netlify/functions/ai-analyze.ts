@@ -46,7 +46,7 @@ Today's date: ${new Date().toLocaleDateString("nl-NL", { year: "numeric", month:
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5-20251001",
+          model: "claude-sonnet-4-6",
           max_tokens: 600,
           system: systemPrompt,
           messages,
@@ -82,7 +82,7 @@ Today's date: ${new Date().toLocaleDateString("nl-NL", { year: "numeric", month:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20251001",
+        model: "claude-sonnet-4-6",
         max_tokens: plan === "elite" ? 1500 : 1000,
         messages: [
           {
