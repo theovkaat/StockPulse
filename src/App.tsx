@@ -669,6 +669,30 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
 function SettingsTab({ user, onUpgrade, onLogout }: { user: Profile; onUpgrade: (plan: string) => void; onLogout: () => void }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
+  const [promoCode, setPromoCode] = useState("");
+  const [promoMsg, setPromoMsg]   = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  // Promo codes — friends & family get free upgrades
+  const PROMO_CODES: Record<string, string> = {
+    "FRIENDS2024": "pro",
+    "FAMILY2024":  "elite",
+    "STOCKPULSE":  "pro",
+  };
+
+  const applyPromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    const plan = PROMO_CODES[code];
+    if (!plan) { setPromoMsg("❌ Invalid promo code. Please try again."); return; }
+    if (plan === user.plan) { setPromoMsg("✅ You already have this plan!"); return; }
+    setPromoLoading(true);
+    await supabase.from("profiles").update({ plan }).eq("id", user.id);
+    onUpgrade(plan);
+    setPromoMsg(`🎉 Code applied! You are now on the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan.`);
+    setPromoLoading(false);
+    setPromoCode("");
+  };
+
   return <div style={{ maxWidth: 680 }}>
     <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
       <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Account</span></div>
@@ -681,7 +705,27 @@ function SettingsTab({ user, onUpgrade, onLogout }: { user: Profile; onUpgrade: 
         </div>
       </div>
     </div>
+
+    {/* Promo code */}
     <div className="card anim-fadeUp-1" style={{ marginBottom: 16 }}>
+      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🎁 Promo Code</span></div>
+      <div style={{ padding: 20, display: "flex", gap: 10, alignItems: "flex-start", flexDirection: "column" }}>
+        <div style={{ display: "flex", gap: 10, width: "100%" }}>
+          <input className="input-field" placeholder="Enter promo code..." value={promoCode}
+            onChange={e => { setPromoCode(e.target.value); setPromoMsg(""); }}
+            onKeyDown={e => e.key === "Enter" && applyPromo()}
+            style={{ flex: 1 }} />
+          <button className="btn-primary" onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
+            style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+            {promoLoading ? <Spinner /> : "Apply"}
+          </button>
+        </div>
+        {promoMsg && <div style={{ fontSize: 13, color: promoMsg.startsWith("❌") ? C.red : C.green, background: promoMsg.startsWith("❌") ? C.redDim : C.greenDim, padding: "8px 12px", borderRadius: 8, width: "100%" }}>{promoMsg}</div>}
+      </div>
+    </div>
+
+    {/* Upgrade plans */}
+    <div className="card anim-fadeUp-2" style={{ marginBottom: 16 }}>
       <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Upgrade Plan</span></div>
       <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {PLANS.filter(p => p.id !== user.plan).map(plan => (
@@ -689,12 +733,16 @@ function SettingsTab({ user, onUpgrade, onLogout }: { user: Profile; onUpgrade: 
             <div style={{ color: plan.color, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{plan.name}</div>
             <div className="mono" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{plan.price === 0 ? "Free" : `€${plan.price}/mo`}</div>
             {plan.features.slice(0, 3).map((f, i) => <div key={i} style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>✓ {f}</div>)}
-            <button className="btn-primary" onClick={() => onUpgrade(plan.id)} style={{ width: "100%", marginTop: 12, fontSize: 13, padding: 9, background: plan.id === "elite" ? C.gold : C.accent }}>Upgrade →</button>
+            <button className="btn-primary" onClick={() => onUpgrade(plan.id)}
+              style={{ width: "100%", marginTop: 12, fontSize: 13, padding: 9, background: plan.id === "elite" ? C.gold : C.accent }}>
+              {plan.price === 0 ? "Downgrade" : "Pay with Stripe →"}
+            </button>
           </div>
         ))}
       </div>
     </div>
-    <div className="card anim-fadeUp-2" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+
+    <div className="card anim-fadeUp-3" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ fontSize: 14, color: C.muted }}>Sign out of your account</div>
       <button className="btn-ghost" onClick={onLogout} style={{ color: C.red, borderColor: C.red + "44" }}>Sign out</button>
     </div>
@@ -728,11 +776,25 @@ export default function App() {
   const handleAuth = (u: Profile) => { setUser(u); setPage("app"); };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("landing"); };
   const handleUpgrade = async (planId: string) => {
-    alert(`💳 Stripe checkout would open here for the ${planId} plan.\n\nComing soon — Stripe integration is next!`);
-    if (user) {
-      await supabase.from("profiles").update({ plan: planId }).eq("id", user.id);
+    // If downgrading to free or plan set via promo code, just update state
+    if (planId === "free") {
+      await supabase.from("profiles").update({ plan: planId }).eq("id", user!.id);
       setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
+      return;
     }
+    // Update local state immediately (for promo code upgrades)
+    setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
+    // For paid plans — redirect to Stripe
+    try {
+      const resp = await fetch("/.netlify/functions/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, email: user!.email, userId: user!.id }),
+      });
+      const data = await resp.json();
+      if (data.url) window.location.href = data.url;
+      else alert("Could not start checkout. Please try again.");
+    } catch { alert("Could not connect to payment system. Please try again."); }
   };
 
   const TABS = [
