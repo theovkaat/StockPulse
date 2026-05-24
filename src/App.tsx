@@ -354,6 +354,187 @@ function AuthForm({ mode, onAuth, onSwitch }: { mode: "login" | "signup"; onAuth
   </div>;
 }
 
+// ─── CSV IMPORTER ─────────────────────────────────────────────────────────────
+interface ParsedPosition { ticker: string; shares: number; avgBuy: number; name: string; }
+
+function parseCSV(text: string): ParsedPosition[] {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+
+  // Detect IBKR/Lynx format: "Positions,Header,Symbol,Quantity..."
+  const isIBKR = lines.some(l => l.startsWith("Positions,Header") || l.startsWith("Open Positions"));
+  if (isIBKR) {
+    const headerLine = lines.find(l => l.startsWith("Positions,Header") || l.startsWith("Open Positions,Header"));
+    if (!headerLine) return [];
+    const headers = headerLine.split(",").map(h => h.trim().toLowerCase());
+    const symIdx  = headers.findIndex(h => h === "symbol");
+    const qtyIdx  = headers.findIndex(h => h === "quantity" || h === "qty");
+    const costIdx = headers.findIndex(h => h.includes("cost price") || h.includes("avg price") || h.includes("average price"));
+    if (symIdx < 0 || qtyIdx < 0 || costIdx < 0) return [];
+    return lines
+      .filter(l => l.startsWith("Positions,Data") || l.startsWith("Open Positions,Data"))
+      .map(l => {
+        const cols = l.split(",");
+        const ticker = cols[symIdx]?.trim().toUpperCase();
+        const shares = parseFloat(cols[qtyIdx]?.trim().replace(/[^0-9.-]/g, ""));
+        const avgBuy = parseFloat(cols[costIdx]?.trim().replace(/[^0-9.-]/g, ""));
+        if (!ticker || isNaN(shares) || shares <= 0 || isNaN(avgBuy) || avgBuy <= 0) return null;
+        return { ticker, shares, avgBuy, name: ticker };
+      })
+      .filter(Boolean) as ParsedPosition[];
+  }
+
+  // Detect DEGIRO format: has "Product" and "ISIN" columns
+  const headerLine = lines[0];
+  const headers = headerLine.split(/[,;]/).map(h => h.trim().replace(/"/g, "").toLowerCase());
+  const isDEGIRO = headers.some(h => h.includes("product")) && headers.some(h => h.includes("isin"));
+
+  if (isDEGIRO) {
+    const symIdx  = headers.findIndex(h => h.includes("symbol") || h.includes("ticker"));
+    const prodIdx = headers.findIndex(h => h.includes("product"));
+    const qtyIdx  = headers.findIndex(h => h.includes("aantal") || h.includes("quantity") || h.includes("shares"));
+    const costIdx = headers.findIndex(h => h.includes("gemiddelde") || h.includes("avg") || h.includes("koers") || h.includes("price"));
+    if (qtyIdx < 0) return [];
+    return lines.slice(1)
+      .filter(l => l.trim())
+      .map(l => {
+        const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g, ""));
+        const ticker = symIdx >= 0 ? cols[symIdx]?.toUpperCase() : cols[prodIdx]?.toUpperCase() || "";
+        const shares = parseFloat(cols[qtyIdx]?.replace(",", ".") || "0");
+        const avgBuy = costIdx >= 0 ? parseFloat(cols[costIdx]?.replace(",", ".") || "0") : 0;
+        if (!ticker || isNaN(shares) || shares <= 0) return null;
+        return { ticker, shares, avgBuy: isNaN(avgBuy) ? 0 : avgBuy, name: cols[prodIdx] || ticker };
+      })
+      .filter(Boolean) as ParsedPosition[];
+  }
+
+  // Universal format: auto-detect ticker/shares/price columns
+  const tickerIdx = headers.findIndex(h => ["ticker", "symbol", "stock", "aandeel", "isin"].some(k => h.includes(k)));
+  const sharesIdx = headers.findIndex(h => ["shares", "quantity", "qty", "aantal", "hoeveelheid", "amount"].some(k => h.includes(k)));
+  const priceIdx  = headers.findIndex(h => ["price", "avg", "cost", "prijs", "koers", "buy"].some(k => h.includes(k)));
+
+  if (tickerIdx < 0 || sharesIdx < 0) return [];
+
+  return lines.slice(1)
+    .filter(l => l.trim())
+    .map(l => {
+      const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g, ""));
+      const ticker = cols[tickerIdx]?.toUpperCase();
+      const shares = parseFloat(cols[sharesIdx]?.replace(",", ".") || "0");
+      const avgBuy = priceIdx >= 0 ? parseFloat(cols[priceIdx]?.replace(",", ".") || "0") : 0;
+      if (!ticker || isNaN(shares) || shares <= 0) return null;
+      return { ticker, shares, avgBuy: isNaN(avgBuy) ? 0 : avgBuy, name: ticker };
+    })
+    .filter(Boolean) as ParsedPosition[];
+}
+
+function CSVImporter({ user, onImported }: { user: Profile; onImported: (holdings: any[]) => void }) {
+  const [show, setShow]       = useState(false);
+  const [preview, setPreview] = useState<ParsedPosition[]>([]);
+  const [error, setError]     = useState("");
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported]   = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(""); setPreview([]); setImported(false);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const positions = parseCSV(text);
+      if (positions.length === 0) {
+        setError("Could not parse this CSV. Make sure it has ticker, shares and price columns, or use a Lynx/DEGIRO export.");
+      } else {
+        setPreview(positions);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const doImport = async () => {
+    setImporting(true);
+    const rows = preview.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
+    const { data, error: err } = await supabase.from("holdings").insert(rows).select();
+    if (err) { setError("Import failed. Please try again."); setImporting(false); return; }
+    onImported(data || []);
+    setImported(true);
+    setPreview([]);
+    setImporting(false);
+    setTimeout(() => { setShow(false); setImported(false); }, 2000);
+  };
+
+  if (!show) return (
+    <button onClick={() => setShow(true)} className="btn-ghost" style={{ fontSize: 13, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+      📁 Import CSV
+    </button>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#00000088", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 560, padding: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>📁 Import Portfolio CSV</div>
+          <button onClick={() => { setShow(false); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>✕</button>
+        </div>
+
+        {/* Supported formats */}
+        <div style={{ background: C.accentDim, border: `1px solid ${C.accent}33`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.mutedLight }}>
+          ✅ Supported: <strong style={{ color: C.text }}>Lynx/IBKR</strong> Activity Statement · <strong style={{ color: C.text }}>DEGIRO</strong> Portfolio Export · <strong style={{ color: C.text }}>Universal CSV</strong> (ticker, shares, price)
+        </div>
+
+        {!preview.length && !imported && (
+          <div>
+            <div onClick={() => fileRef.current?.click()}
+              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "32px 20px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", marginBottom: 12 }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
+              <div style={{ fontSize: 14, color: C.mutedLight, marginBottom: 4 }}>Click to select your CSV file</div>
+              <div style={{ fontSize: 11, color: C.muted }}>or drag and drop here</div>
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
+            {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "10px 14px", borderRadius: 8 }}>{error}</div>}
+          </div>
+        )}
+
+        {preview.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, color: C.green, marginBottom: 12 }}>✅ Found {preview.length} positions — review before importing:</div>
+            <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 16 }}>
+              <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "8px 14px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+                <span>TICKER</span><span style={{ textAlign: "right" }}>SHARES</span><span style={{ textAlign: "right" }}>AVG PRICE</span>
+              </div>
+              {preview.map((p, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13 }}>
+                  <span style={{ fontWeight: 600 }}>{p.ticker}</span>
+                  <span className="mono" style={{ textAlign: "right" }}>{p.shares}</span>
+                  <span className="mono" style={{ textAlign: "right", color: p.avgBuy > 0 ? C.text : C.muted }}>{p.avgBuy > 0 ? `€${p.avgBuy.toFixed(2)}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+            {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "10px 14px", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-primary" onClick={doImport} disabled={importing} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {importing ? <><Spinner /> Importing...</> : `✅ Import ${preview.length} positions`}
+              </button>
+              <button className="btn-ghost" onClick={() => { setPreview([]); setError(""); if (fileRef.current) fileRef.current.value = ""; }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {imported && (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.green }}>Portfolio imported successfully!</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── PORTFOLIO TAB ────────────────────────────────────────────────────────────
 function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record<string, PriceData>; user: Profile; onRefresh: () => void; lastUpdated: string }) {
   const [holdings, setHoldings] = useState<Holding[]>([]);
@@ -361,6 +542,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
   const [search, setSearch] = useState("");
   const [addError, setAddError] = useState("");
   const [loadingData, setLoadingData] = useState(true);
+  const [showImporter, setShowImporter] = useState(false);
 
   useEffect(() => {
     supabase.from("holdings").select("*").eq("user_id", user.id).order("added_at", { ascending: true })
@@ -406,7 +588,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
     <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
       <div>
         <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span></div>
+          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span><CSVImporter user={user} onImported={(newH) => setHoldings(prev => [...prev, ...newH])} /></div>
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))} />
             <input className="input-field" type="number" placeholder="Number of shares" value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
