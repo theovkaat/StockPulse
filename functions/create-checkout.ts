@@ -5,7 +5,7 @@ export async function onRequestPost(context: any) {
       status: 500, headers: { "Content-Type": "application/json" }
     });
   }
-
+ 
   try {
     const { planId, email, userId } = await context.request.json();
     if (!planId || !email || !userId) {
