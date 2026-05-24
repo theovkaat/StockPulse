@@ -3,16 +3,70 @@ import { supabase } from "./supabase";
 import type { Profile, Holding, Alert } from "./supabase";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: "#07090f", surface: "#0d1117", card: "#111827", cardHover: "#151f30",
-  border: "#1a2744", borderLight: "#243352", accent: "#3b82f6",
-  accentGlow: "#3b82f644", accentDim: "#3b82f618", gold: "#f59e0b",
-  goldDim: "#f59e0b22", green: "#10b981", greenDim: "#10b98122",
-  red: "#ef4444", redDim: "#ef444422", text: "#f1f5f9",
-  muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
+const THEMES: Record<string, typeof C_DEFAULT> = {
+  dark: {
+    bg: "#07090f", surface: "#0d1117", card: "#111827", cardHover: "#151f30",
+    border: "#1a2744", borderLight: "#243352", accent: "#3b82f6",
+    accentGlow: "#3b82f644", accentDim: "#3b82f618", gold: "#f59e0b",
+    goldDim: "#f59e0b22", green: "#10b981", greenDim: "#10b98122",
+    red: "#ef4444", redDim: "#ef444422", text: "#f1f5f9",
+    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
+  },
+  navy: {
+    bg: "#0a0f1e", surface: "#0f1629", card: "#141d35", cardHover: "#1a2440",
+    border: "#1e2d50", borderLight: "#2a3d6a", accent: "#60a5fa",
+    accentGlow: "#60a5fa44", accentDim: "#60a5fa18", gold: "#fbbf24",
+    goldDim: "#fbbf2422", green: "#34d399", greenDim: "#34d39922",
+    red: "#f87171", redDim: "#f8717122", text: "#e2e8f0",
+    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
+  },
+  slate: {
+    bg: "#0f172a", surface: "#1e293b", card: "#243447", cardHover: "#2d3f55",
+    border: "#334155", borderLight: "#475569", accent: "#818cf8",
+    accentGlow: "#818cf844", accentDim: "#818cf818", gold: "#fbbf24",
+    goldDim: "#fbbf2422", green: "#4ade80", greenDim: "#4ade8022",
+    red: "#f87171", redDim: "#f8717122", text: "#f1f5f9",
+    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
+  },
+  light: {
+    bg: "#f8fafc", surface: "#ffffff", card: "#f1f5f9", cardHover: "#e2e8f0",
+    border: "#cbd5e1", borderLight: "#94a3b8", accent: "#3b82f6",
+    accentGlow: "#3b82f644", accentDim: "#3b82f618", gold: "#d97706",
+    goldDim: "#d9770622", green: "#059669", greenDim: "#05966922",
+    red: "#dc2626", redDim: "#dc262622", text: "#0f172a",
+    muted: "#64748b", mutedLight: "#475569", white: "#ffffff",
+  },
+  forest: {
+    bg: "#0a1a0f", surface: "#0f2416", card: "#142d1c", cardHover: "#1a3824",
+    border: "#1e4428", borderLight: "#2d6040", accent: "#4ade80",
+    accentGlow: "#4ade8044", accentDim: "#4ade8018", gold: "#fbbf24",
+    goldDim: "#fbbf2422", green: "#34d399", greenDim: "#34d39922",
+    red: "#f87171", redDim: "#f8717122", text: "#f0fdf4",
+    muted: "#6b7280", mutedLight: "#9ca3af", white: "#ffffff",
+  },
 };
 
-const GLOBAL_STYLE = `
+const THEME_LABELS: Record<string, { label: string; preview: string }> = {
+  dark:   { label: "Dark",   preview: "#07090f" },
+  navy:   { label: "Navy",   preview: "#0a0f1e" },
+  slate:  { label: "Slate",  preview: "#0f172a" },
+  light:  { label: "Light",  preview: "#f8fafc" },
+  forest: { label: "Forest", preview: "#0a1a0f" },
+};
+
+type ThemeColors = {
+  bg: string; surface: string; card: string; cardHover: string;
+  border: string; borderLight: string; accent: string;
+  accentGlow: string; accentDim: string; gold: string;
+  goldDim: string; green: string; greenDim: string;
+  red: string; redDim: string; text: string;
+  muted: string; mutedLight: string; white: string;
+};
+
+const C_DEFAULT: ThemeColors = THEMES.dark;
+let C: ThemeColors = THEMES.dark;
+
+const makeGlobalStyle = (C: ThemeColors) => `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: ${C.bg}; color: ${C.text}; font-family: 'Instrument Sans', sans-serif; -webkit-font-smoothing: antialiased; }
@@ -667,7 +721,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
 }
 
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout }: { user: Profile; onUpgrade: (plan: string) => void; onPromoApplied: (plan: string) => void; onLogout: () => void }) {
+function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange, currentTheme }: { user: Profile; onUpgrade: (plan: string) => void; onPromoApplied: (plan: string) => void; onLogout: () => void; onThemeChange: (t: string) => void; currentTheme: string }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg]   = useState("");
@@ -742,7 +796,21 @@ function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout }: { user: Prof
       </div>
     </div>
 
-    <div className="card anim-fadeUp-3" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    {/* Theme selector */}
+    <div className="card anim-fadeUp-3" style={{ marginBottom: 16 }}>
+      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🎨 Theme</span></div>
+      <div style={{ padding: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {Object.entries(THEME_LABELS).map(([key, { label, preview }]) => (
+          <button key={key} onClick={() => onThemeChange(key)}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10, border: `2px solid ${currentTheme === key ? C.accent : C.border}`, background: currentTheme === key ? C.accentDim : "transparent", cursor: "pointer", transition: "all 0.2s" }}>
+            <span style={{ width: 16, height: 16, borderRadius: "50%", background: preview, border: `2px solid ${C.border}`, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: currentTheme === key ? C.accent : C.mutedLight, fontWeight: currentTheme === key ? 600 : 400 }}>{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className="card anim-fadeUp-4" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ fontSize: 14, color: C.muted }}>Sign out of your account</div>
       <button className="btn-ghost" onClick={onLogout} style={{ color: C.red, borderColor: C.red + "44" }}>Sign out</button>
     </div>
@@ -752,6 +820,13 @@ function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout }: { user: Prof
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState<Profile | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("sp_theme") || "dark");
+  C = THEMES[currentTheme] || THEMES.dark;
+
+  const handleThemeChange = (theme: string) => {
+    localStorage.setItem("sp_theme", theme);
+    setCurrentTheme(theme);
+  };
   const [page, setPage] = useState<"landing" | "login" | "signup" | "app">("landing");
   const [tab, setTab]   = useState("portfolio");
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -825,13 +900,13 @@ export default function App() {
     { id: "settings",  label: "⚙️ Account" },
   ];
 
-  if (checkingAuth) return <><style>{GLOBAL_STYLE}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
-  if (page === "landing") return <><style>{GLOBAL_STYLE}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>;
-  if (page === "login")   return <><style>{GLOBAL_STYLE}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} /></>;
-  if (page === "signup")  return <><style>{GLOBAL_STYLE}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} /></>;
+  if (checkingAuth) return <><style>{makeGlobalStyle(C)}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
+  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>;
+  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} /></>;
+  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} /></>;
 
   return <div style={{ minHeight: "100vh" }}>
-    <style>{GLOBAL_STYLE}</style>
+    <style>{makeGlobalStyle(C)}</style>
     <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, animation: "glow 3s ease infinite" }}>◈</div>
@@ -855,7 +930,7 @@ export default function App() {
       {tab === "alerts"    && <AlertsTab    prices={prices} user={user!} />}
       {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
       {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
-      {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} />}
+      {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} onThemeChange={handleThemeChange} currentTheme={currentTheme} />}
     </div>
   </div>;
 }
