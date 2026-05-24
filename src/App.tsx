@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
 import type { Profile, Holding, Alert } from "./supabase";
-
+ 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const THEMES: Record<string, typeof C_DEFAULT> = {
   dark: {
