@@ -765,6 +765,126 @@ function AlertsTab({ prices, user }: { prices: Record<string, PriceData>; user: 
   </div>;
 }
 
+// ─── DIVIDENDS TAB ───────────────────────────────────────────────────────────
+// Well-known dividend yields (fallback if user hasn't set one)
+const KNOWN_YIELDS: Record<string, number> = {
+  ASML: 0.9, NVDA: 0.03, MSFT: 0.7, GOOGL: 0.5, AAPL: 0.5,
+  ADYEN: 0.0, ASMI: 0.7, MU: 0.4, AMD: 0.0, TSLA: 0.0, META: 0.4,
+  NOVO: 1.8, JNJ: 3.0, KO: 3.1, PG: 2.4, VZ: 6.5, T: 5.8,
+  SHELL: 4.2, UNILEVER: 3.8, ABN: 5.1, ING: 7.2, PHIA: 3.9,
+};
+
+function DividendsTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editYield, setEditYield] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from("holdings").select("*").eq("user_id", user.id).order("added_at")
+      .then(({ data }) => { setHoldings(data || []); setLoading(false); });
+  }, [user.id]);
+
+  const saveYield = async (id: string) => {
+    const val = parseFloat(editYield);
+    if (isNaN(val) || val < 0) return;
+    await supabase.from("holdings").update({ dividend_yield: val }).eq("id", id);
+    setHoldings(prev => prev.map(h => h.id === id ? { ...h, dividend_yield: val } : h));
+    setEditing(null);
+  };
+
+  // Calculate dividends
+  const rows = holdings.map(h => {
+    const curPrice = prices[h.ticker]?.price ?? h.avg_buy;
+    const yld = h.dividend_yield > 0 ? h.dividend_yield : (KNOWN_YIELDS[h.ticker] || 0);
+    const annualPerShare = curPrice * (yld / 100);
+    const annualTotal = annualPerShare * h.shares;
+    const monthlyTotal = annualTotal / 12;
+    const quarterlyTotal = annualTotal / 4;
+    return { ...h, yld, annualPerShare, annualTotal, monthlyTotal, quarterlyTotal, curPrice };
+  });
+
+  const totalAnnual = rows.reduce((s, r) => s + r.annualTotal, 0);
+  const totalMonthly = totalAnnual / 12;
+  const topPayer = rows.length > 0 ? rows.reduce((a, b) => a.annualTotal > b.annualTotal ? a : b) : null;
+
+  return <div>
+    {/* Summary cards */}
+    <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+      <StatCard label="Annual Dividend Income" value={`€${totalAnnual.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} accent={C.green} delay={0} />
+      <StatCard label="Monthly Income" value={`€${totalMonthly.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={1} />
+      <StatCard label="Quarterly Income" value={`€${(totalAnnual / 4).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={2} />
+      {topPayer && <StatCard label="Top Dividend Payer" value={topPayer.ticker} sub={`€${topPayer.annualTotal.toFixed(2)}/year`} accent={C.gold} delay={3} />}
+    </div>
+
+    <div className="card anim-fadeUp">
+      <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>💰 Dividend Overview</span>
+        <span style={{ fontSize: 12, color: C.muted }}>Click yield % to edit · Pre-filled with known yields</span>
+      </div>
+
+      {loading ? <div style={{ padding: 32, textAlign: "center" }}><Spinner /></div> :
+        rows.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: C.muted, fontSize: 14 }}>Add stocks to your portfolio first.</div> :
+        <div>
+          <div className="mono" style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "8px 20px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+            <span>TICKER</span><span>NAME</span><span style={{ textAlign: "right" }}>YIELD</span>
+            <span style={{ textAlign: "right" }}>ANNUAL</span><span style={{ textAlign: "right" }}>QUARTERLY</span><span style={{ textAlign: "right" }}>MONTHLY</span>
+          </div>
+          {rows.map(h => (
+            <div key={h.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "14px 20px", borderBottom: `1px solid ${C.border}`, alignItems: "center", transition: "background 0.2s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>{h.ticker}</span>
+              <div>
+                <div style={{ fontSize: 13 }}>{h.name}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{h.shares} shares · €{h.curPrice.toFixed(2)}/share</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                {editing === h.id ? (
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-end" }}>
+                    <input className="input-field" type="number" value={editYield} onChange={e => setEditYield(e.target.value)}
+                      style={{ width: 55, padding: "3px 6px", fontSize: 12 }} onKeyDown={e => e.key === "Enter" && saveYield(h.id)} autoFocus />
+                    <span style={{ fontSize: 11, color: C.muted }}>%</span>
+                    <button onClick={() => saveYield(h.id)} style={{ background: C.green, border: "none", borderRadius: 5, padding: "3px 7px", color: "white", cursor: "pointer", fontSize: 11 }}>✓</button>
+                  </div>
+                ) : (
+                  <span onClick={() => { setEditing(h.id); setEditYield(h.yld.toString()); }}
+                    style={{ fontSize: 13, color: h.yld > 0 ? C.green : C.muted, cursor: "pointer", fontWeight: 600, textDecoration: "underline dotted" }}
+                    title="Click to edit">
+                    {h.yld > 0 ? `${h.yld.toFixed(1)}%` : "set %"}
+                  </span>
+                )}
+              </div>
+              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: h.annualTotal > 0 ? C.green : C.muted }}>
+                {h.annualTotal > 0 ? `€${h.annualTotal.toFixed(2)}` : "—"}
+              </span>
+              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: C.mutedLight }}>
+                {h.quarterlyTotal > 0 ? `€${h.quarterlyTotal.toFixed(2)}` : "—"}
+              </span>
+              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: C.mutedLight }}>
+                {h.monthlyTotal > 0 ? `€${h.monthlyTotal.toFixed(2)}` : "—"}
+              </span>
+            </div>
+          ))}
+          {/* Total row */}
+          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "14px 20px", background: C.accentDim, alignItems: "center" }}>
+            <span />
+            <span className="syne" style={{ fontWeight: 700, fontSize: 13 }}>Total</span>
+            <span />
+            <span className="mono" style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: C.green }}>€{totalAnnual.toFixed(2)}</span>
+            <span className="mono" style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.green }}>€{(totalAnnual / 4).toFixed(2)}</span>
+            <span className="mono" style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.green }}>€{totalMonthly.toFixed(2)}</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    {/* Info box */}
+    <div style={{ marginTop: 16, padding: "12px 16px", background: C.goldDim, border: `1px solid ${C.gold}44`, borderRadius: 10, fontSize: 12, color: C.mutedLight }}>
+      💡 <strong style={{ color: C.gold }}>Tip:</strong> Yields are pre-filled for well-known stocks. Click the yield % to set your own exact dividend yield. Annual dividend = current price × yield × shares.
+    </div>
+  </div>;
+}
+
 // ─── AI ANALYSE TAB ───────────────────────────────────────────────────────────
 function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
   const [loading, setLoading] = useState(false);
@@ -1077,6 +1197,7 @@ export default function App() {
     { id: "portfolio", label: "📊 Portfolio" },
     { id: "markt",     label: "🌐 Market" },
     { id: "alerts",    label: "🔔 Alerts" },
+    { id: "dividends", label: "💰 Dividends" },
     { id: "ai",        label: "🤖 AI Analysis", pro: true },
     { id: "chat",      label: "💬 AI Chat", pro: true },
     { id: "settings",  label: "⚙️ Account" },
@@ -1110,6 +1231,7 @@ export default function App() {
       {tab === "portfolio" && <PortfolioTab prices={prices} user={user!} onRefresh={refresh} lastUpdated={lastUpdated} />}
       {tab === "markt"     && <MarketTab    prices={prices} lastUpdated={lastUpdated} onRefresh={refresh} />}
       {tab === "alerts"    && <AlertsTab    prices={prices} user={user!} />}
+      {tab === "dividends"  && <DividendsTab  prices={prices} user={user!} />}
       {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
       {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
       {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} onThemeChange={handleThemeChange} currentTheme={currentTheme} />}
