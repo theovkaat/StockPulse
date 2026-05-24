@@ -9,4 +9,3 @@ export async function onRequestPost(context: any) {
     headers: { "Content-Type": "application/json" }
   });
 }
-Commit, wait for Cloudflare to deploy, then test again!
