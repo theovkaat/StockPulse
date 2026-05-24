@@ -546,7 +546,7 @@ function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, 
     if (user.plan === "free") { alert("AI Analysis is available in Pro and Elite. Upgrade your plan."); return; }
     setLoading(true); setResult(null);
     try {
-      const resp = await fetch("/.netlify/functions/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolioSummary: buildSummary(), plan: user.plan }) });
+      const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolioSummary: buildSummary(), plan: user.plan }) });
       const data = await resp.json();
       setResult(data.result || data.error || "Could not load analysis.");
     } catch { setResult("❌ Could not connect to AI. Please try again."); }
@@ -606,7 +606,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
     setLoading(true);
     try {
       const history = [...messages.slice(-10), userMsg].map(m => ({ role: m.role, content: m.content }));
-      const resp = await fetch("/.netlify/functions/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }) });
+      const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }) });
       const data = await resp.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.result || data.error || "Sorry, I could not respond." }]);
     } catch { setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please try again." }]); }
@@ -790,7 +790,7 @@ export default function App() {
     setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
     // For paid plans — redirect to Stripe
     try {
-      const resp = await fetch("/.netlify/functions/create-checkout", {
+      const resp = await fetch("/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId, email: user!.email, userId: user!.id }),
