@@ -20,6 +20,7 @@ export type Holding = {
   name: string
   shares: number
   avg_buy: number
+  dividend_yield: number   // annual dividend yield in %
   added_at: string
 }
 
