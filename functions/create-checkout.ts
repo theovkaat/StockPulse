@@ -29,4 +29,33 @@ export async function onRequestPost(context: any) {
     params.append("line_items[0][quantity]", "1");
     params.append("success_url", `https://stockpulse.fit/?upgraded=${planId}`);
     params.append("cancel_url", "https://stockpulse.fit/?cancelled=true");
-    par
+    params.append("metadata[userId]", userId);
+    params.append("metadata[planId]", planId);
+    params.append("payment_method_types[0]", "card");
+
+    const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const data: any = await response.json();
+
+    if (!response.ok) {
+      return new Response(JSON.stringify({ error: data.error?.message || "Stripe error" }), {
+        status: 500, headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response(JSON.stringify({ url: data.url }), {
+      status: 200, headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500, headers: { "Content-Type": "application/json" }
+    });
+  }
+}
