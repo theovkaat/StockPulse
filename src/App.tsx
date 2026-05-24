@@ -769,11 +769,8 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           const upgraded = params.get("upgraded");
           if (upgraded && ["pro", "elite"].includes(upgraded)) {
-            // Wait a moment for webhook to process, then reload profile
-            setTimeout(async () => {
-              const { data: freshProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-              setUser(freshProfile || { ...profile, plan: upgraded as Profile["plan"] });
-            }, 2000);
+            // Update Supabase immediately (don't wait for webhook)
+            await supabase.from("profiles").update({ plan: upgraded }).eq("id", session.user.id);
             setUser({ ...profile, plan: upgraded as Profile["plan"] });
             // Clean up URL
             window.history.replaceState({}, "", "/");
