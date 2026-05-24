@@ -764,11 +764,29 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        if (profile) { setUser(profile); setPage("app"); }
+        if (profile) {
+          // Check if returning from Stripe with upgraded plan
+          const params = new URLSearchParams(window.location.search);
+          const upgraded = params.get("upgraded");
+          if (upgraded && ["pro", "elite"].includes(upgraded)) {
+            // Wait a moment for webhook to process, then reload profile
+            setTimeout(async () => {
+              const { data: freshProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+              setUser(freshProfile || { ...profile, plan: upgraded as Profile["plan"] });
+            }, 2000);
+            setUser({ ...profile, plan: upgraded as Profile["plan"] });
+            // Clean up URL
+            window.history.replaceState({}, "", "/");
+          } else {
+            setUser(profile);
+          }
+          setPage("app");
+          setTab("settings");
+        }
       }
       setCheckingAuth(false);
     });
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (event === "SIGNED_OUT") { setUser(null); setPage("landing"); }
     });
   }, []);
