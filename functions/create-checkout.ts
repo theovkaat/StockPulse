@@ -13,8 +13,8 @@ export async function onRequestPost(context: any) {
     }
 
     const PRICE_IDS: Record<string, string> = {
-pro:   "price_1TaXoeK8FVmLL7TIAevFam1j",
-elite: "price_1TaXoyK8FVmLL7TIdy6dL330",    };
+pro:   "price_1TaBfWK8FVmLL7TIcrmqf7Oq",
+elite: "price_1TaBg6K8FVmLL7TIiJ4w3On9",    };
     const priceId = PRICE_IDS[planId];
     if (!priceId) {
       return new Response(JSON.stringify({ error: `Invalid plan: ${planId}` }), { status: 400, headers: { "Content-Type": "application/json" } });
