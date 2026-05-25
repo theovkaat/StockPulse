@@ -483,9 +483,9 @@ function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImp
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#000000cc", zIndex: 9999, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 24px 40px" }}>
-      <div style={{ background: "#111827", border: "1px solid #1a2744", borderRadius: 16, width: "100%", maxWidth: 720, padding: 32, boxShadow: "0 25px 60px rgba(0,0,0,0.8)" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, width: "100%", maxWidth: 720, padding: 32, boxShadow: "0 25px 60px rgba(0,0,0,0.8)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>📁 Import Portfolio CSV</div>
+          <div className="syne" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>📁 Import Portfolio CSV</div>
           <button onClick={() => { setShow(false); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>✕</button>
         </div>
 
@@ -497,11 +497,11 @@ function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImp
         {!preview.length && !imported && (
           <div>
             <div onClick={() => fileRef.current?.click()}
-              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "32px 20px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", marginBottom: 12 }}
+              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "32px 20px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", marginBottom: 12, background: C.surface }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
               onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
-              <div style={{ fontSize: 14, color: C.mutedLight, marginBottom: 4 }}>Click to select your CSV file</div>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 4 }}>Click to select your CSV file</div>
               <div style={{ fontSize: 11, color: C.muted }}>or drag and drop here</div>
             </div>
             <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
@@ -519,7 +519,7 @@ function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImp
               {preview.map((p, i) => (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13 }}>
                   <span style={{ fontWeight: 600 }}>{p.ticker}</span>
-                  <span className="mono" style={{ textAlign: "right" }}>{p.shares}</span>
+                  <span className="mono" style={{ textAlign: "right", color: C.mutedLight }}>{p.shares}</span>
                   <span className="mono" style={{ textAlign: "right", color: p.avgBuy > 0 ? C.text : C.muted }}>{p.avgBuy > 0 ? `€${p.avgBuy.toFixed(2)}` : "—"}</span>
                 </div>
               ))}
