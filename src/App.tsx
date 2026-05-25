@@ -428,8 +428,7 @@ function parseCSV(text: string): ParsedPosition[] {
     .filter(Boolean) as ParsedPosition[];
 }
 
-function CSVImporter({ user, onImported }: { user: Profile; onImported: (holdings: any[]) => void }) {
-  const [show, setShow]       = useState(false);
+function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImported: (holdings: any[]) => void; show: boolean; setShow: (v: boolean) => void }) {
   const [preview, setPreview] = useState<ParsedPosition[]>([]);
   const [error, setError]     = useState("");
   const [importing, setImporting] = useState(false);
@@ -477,11 +476,7 @@ function CSVImporter({ user, onImported }: { user: Profile; onImported: (holding
     setTimeout(() => { setShow(false); setImported(false); }, 2000);
   };
 
-  if (!show) return (
-    <button onClick={() => setShow(true)} className="btn-ghost" style={{ fontSize: 13, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 }}>
-      📁 Import CSV
-    </button>
-  );
+  if (!show) return null;
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#000000cc", zIndex: 9999, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 24px 40px" }}>
@@ -555,6 +550,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
   const [addError, setAddError] = useState("");
   const [loadingData, setLoadingData] = useState(true);
   const [showImporter, setShowImporter] = useState(false);
+  const [showImporterModal, setShowImporterModal] = useState(false);
 
   useEffect(() => {
     supabase.from("holdings").select("*").eq("user_id", user.id).order("added_at", { ascending: true })
@@ -600,7 +596,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
     <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
       <div>
         <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span><CSVImporter user={user} onImported={(newH) => setHoldings(prev => [...prev, ...newH])} /></div>
+          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span><button onClick={() => setShowImporterModal(true)} className="btn-ghost" style={{ fontSize: 13, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 }}>📁 Import CSV</button></div>
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))} />
             <input className="input-field" type="number" placeholder="Number of shares" value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
@@ -645,6 +641,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
         }
       </div>
     </div>
+    {showImporterModal && <CSVImporter user={user} onImported={(newH) => { setHoldings(prev => [...prev, ...newH]); }} show={showImporterModal} setShow={setShowImporterModal} />}
   </div>;
 }
 
