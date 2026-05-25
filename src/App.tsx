@@ -419,24 +419,22 @@ function PieChart({ holdings, prices }: { holdings: Holding[]; prices: Record<st
                 style={{ cursor: "pointer", transition: "opacity 0.2s", transform: hovered === i ? `scale(1.04)` : "scale(1)", transformOrigin: `${cx}px ${cy}px` }}
                 onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
             ))}
-            <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontSize: 12, fill: C.muted, fontFamily: "Instrument Sans" }}>
+            <text x={cx} y={cy - 6} textAnchor="middle" fill={C.muted} style={{ fontSize: 12, fontFamily: "Instrument Sans" }}>
               {hoveredItem ? hoveredItem.ticker : "Total"}
             </text>
-            <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: 13, fill: C.text, fontFamily: "JetBrains Mono", fontWeight: 700 }}>
+            <text x={cx} y={cy + 12} textAnchor="middle" fill={C.text} style={{ fontSize: 13, fontFamily: "JetBrains Mono", fontWeight: 700 }}>
               {hoveredItem ? `${(hoveredItem.pct * 100).toFixed(1)}%` : `€${(total/1000).toFixed(1)}k`}
             </text>
           </svg>
         </div>
-        <div style={{ flex: 1, minWidth: 140 }}>
+        <div style={{ flex: 1, minWidth: 160 }}>
           {slices.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer" }}
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", padding: "4px 8px", borderRadius: 8, background: hovered === i ? C.accentDim : "transparent" }}
               onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.ticker}</div>
-                <div style={{ fontSize: 11, color: C.muted }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.mutedLight, fontFamily: "JetBrains Mono" }}>{(s.pct * 100).toFixed(1)}%</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.text, minWidth: 50 }}>{s.ticker}</div>
+              <div style={{ fontSize: 11, color: C.muted, flex: 1 }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: s.color, fontFamily: "JetBrains Mono", minWidth: 42, textAlign: "right" }}>{(s.pct * 100).toFixed(1)}%</div>
             </div>
           ))}
         </div>
