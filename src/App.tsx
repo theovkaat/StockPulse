@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
 import type { Profile, Holding, Alert } from "./supabase";
- 
+
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const THEMES: Record<string, typeof C_DEFAULT> = {
   dark: {
@@ -1022,6 +1022,142 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
   </div>;
 }
 
+// ─── SUPPORT TAB ─────────────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  { q: "How do I import my portfolio from Lynx or DEGIRO?", a: "Go to the Portfolio tab and click 'Import CSV'. Export your portfolio from your broker as CSV and upload it. StockPulse supports Lynx/IBKR, DEGIRO and universal CSV formats." },
+  { q: "What is the difference between Free, Pro and Elite?", a: "Free gives you 5 positions and 3 alerts. Pro (€19/mo) gives unlimited positions, live prices, unlimited alerts and AI analysis. Elite (€49/mo) adds priority support and API access." },
+  { q: "How do I cancel my subscription?", a: "Email support@stockpulse.fit and we will cancel your subscription immediately. A self-service cancel button is coming soon." },
+  { q: "How do I set a price alert?", a: "Go to the Alerts tab, enter a ticker symbol, choose 'above' or 'below' and set your target price. You will be notified when the price is reached." },
+  { q: "Which stocks are supported?", a: "Any stock with a valid ticker symbol — ASML, NVDA, AAPL, ADYEN and thousands more. If you know the ticker, StockPulse can track it." },
+  { q: "How do I use a promo code?", a: "Go to Account tab and enter your promo code in the 'Promo Code' section. It will upgrade your plan instantly for free." },
+  { q: "Is my data safe?", a: "Yes — all data is stored securely in Supabase with row-level security. Only you can access your portfolio data." },
+  { q: "How often are prices updated?", a: "Live prices are updated every 30 seconds during market hours via Finnhub." },
+];
+
+function SupportTab() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [openFaq, setOpenFaq]   = useState<number | null>(null);
+  const bottomRef               = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    setInput("");
+    const userMsg: ChatMessage = { role: "user", content: msg };
+    setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+    try {
+      const history = [...messages.slice(-6), userMsg].map(m => ({ role: m.role, content: m.content }));
+      const resp = await fetch("/support-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, history: history.slice(0, -1) }),
+      });
+      const data = await resp.json();
+      setMessages(prev => [...prev, { role: "assistant", content: data.result || "Sorry, I could not respond. Please email support@stockpulse.fit" }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please email support@stockpulse.fit" }]);
+    }
+    setLoading(false);
+  };
+
+  const QUICK_QUESTIONS = ["How do I import from DEGIRO?", "How do I cancel my subscription?", "What does Pro include?", "How do price alerts work?"];
+
+  return <div style={{ maxWidth: 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+    {/* FAQ */}
+    <div>
+      <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>❓ Frequently Asked Questions</span>
+        </div>
+        {FAQ_ITEMS.map((item, i) => (
+          <div key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+            <div onClick={() => setOpenFaq(openFaq === i ? null : i)}
+              style={{ padding: "14px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.2s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>{item.q}</span>
+              <span style={{ color: C.accent, fontSize: 16, flexShrink: 0, marginLeft: 8 }}>{openFaq === i ? "−" : "+"}</span>
+            </div>
+            {openFaq === i && (
+              <div style={{ padding: "0 20px 14px", fontSize: 13, color: C.mutedLight, lineHeight: 1.6, animation: "fadeIn 0.2s ease" }}>{item.a}</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Contact */}
+      <div className="card anim-fadeUp-1" style={{ padding: 20 }}>
+        <div className="syne" style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📧 Contact Support</div>
+        <div style={{ fontSize: 13, color: C.mutedLight, lineHeight: 1.7 }}>
+          Can't find your answer? Email us directly:<br />
+          <a href="mailto:support@stockpulse.fit" style={{ color: C.accent, textDecoration: "none", fontWeight: 600 }}>support@stockpulse.fit</a>
+        </div>
+        <div style={{ marginTop: 12, fontSize: 12, color: C.muted }}>We typically respond within 24 hours.</div>
+      </div>
+    </div>
+
+    {/* AI Support Chat */}
+    <div style={{ display: "flex", flexDirection: "column", height: 600 }}>
+      <div className="card anim-fadeUp" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}>
+        <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🆘</div>
+          <div>
+            <div className="syne" style={{ fontWeight: 700, fontSize: 14 }}>AI Support Assistant</div>
+            <div style={{ fontSize: 11, color: C.green, display: "flex", alignItems: "center", gap: 4 }}><Dot color={C.green} ping={true} /> Online · Knows StockPulse inside out</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderBottom: "none", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🆘</div>
+            <div className="syne" style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>How can I help you?</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Ask me anything about StockPulse</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+              {QUICK_QUESTIONS.map((q, i) => (
+                <button key={i} onClick={() => sendMessage(q)}
+                  style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 16, padding: "5px 12px", fontSize: 11, color: C.accent, cursor: "pointer" }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            {m.role === "assistant" && <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, marginRight: 8, flexShrink: 0, alignSelf: "flex-end" }}>🆘</div>}
+            <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? C.accent : C.surface, border: m.role === "assistant" ? `1px solid ${C.border}` : "none", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: m.role === "user" ? "white" : C.text }}>{m.content}</div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🆘</div>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "16px 16px 16px 4px", padding: "10px 14px", display: "flex", gap: 4 }}>
+              {[0, 1, 2].map(j => <div key={j} style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, animation: `pulse 1.2s ${j * 0.2}s ease infinite` }} />)}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: "10px 14px", display: "flex", gap: 8 }}>
+        <input className="input-field" placeholder="Ask a question..." value={input}
+          onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
+          style={{ flex: 1, height: 38, padding: "8px 12px" }} />
+        <button className="btn-primary" onClick={() => sendMessage()} disabled={loading || !input.trim()}
+          style={{ height: 38, width: 38, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+          {loading ? <Spinner /> : "↑"}
+        </button>
+      </div>
+    </div>
+  </div>;
+}
+
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
 function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange, currentTheme }: { user: Profile; onUpgrade: (plan: string) => void; onPromoApplied: (plan: string) => void; onLogout: () => void; onThemeChange: (t: string) => void; currentTheme: string }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
@@ -1200,6 +1336,7 @@ export default function App() {
     { id: "dividends", label: "💰 Dividends" },
     { id: "ai",        label: "🤖 AI Analysis", pro: true },
     { id: "chat",      label: "💬 AI Chat", pro: true },
+    { id: "support",   label: "🆘 Support" },
     { id: "settings",  label: "⚙️ Account" },
   ];
 
@@ -1234,6 +1371,7 @@ export default function App() {
       {tab === "dividends"  && <DividendsTab  prices={prices} user={user!} />}
       {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
       {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
+      {tab === "support"    && <SupportTab />}
       {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} onThemeChange={handleThemeChange} currentTheme={currentTheme} />}
     </div>
   </div>;
