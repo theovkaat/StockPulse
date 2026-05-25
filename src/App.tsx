@@ -525,11 +525,11 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
               ))}
             </div>
             {error && (
-              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12, background: error.includes("✅") ? C.greenDim : error.includes("ℹ️") || error.includes("⚠️") ? C.goldDim : C.redDim, border: `1px solid ${error.includes("✅") ? C.green + "44" : error.includes("ℹ️") || error.includes("⚠️") ? C.gold + "44" : C.red + "44"}` }}>
-                <div style={{ color: error.includes("✅") ? C.green : error.includes("ℹ️") || error.includes("⚠️") ? C.gold : C.red, marginBottom: error.includes("limit") || error.includes("Upgrade") ? 10 : 0 }}>{error}</div>
-                {(error.includes("limit") || error.includes("Upgrade") || error.includes("Pro")) && (
+              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12, background: error.startsWith("✅") ? C.greenDim : C.goldDim, border: `1px solid ${error.startsWith("✅") ? C.green + "44" : C.gold + "44"}` }}>
+                <div style={{ color: error.startsWith("✅") ? C.green : C.gold, marginBottom: 10 }}>{error}</div>
+                {!error.startsWith("✅") && user.plan === "free" && (
                   <button className="btn-primary" onClick={() => { setShow(false); onUpgradeClick(); }}
-                    style={{ fontSize: 13, padding: "8px 16px", marginTop: 4 }}>
+                    style={{ fontSize: 13, padding: "8px 16px" }}>
                     ⚡ Upgrade to Pro →
                   </button>
                 )}
