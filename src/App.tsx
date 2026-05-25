@@ -354,6 +354,97 @@ function AuthForm({ mode, onAuth, onSwitch }: { mode: "login" | "signup"; onAuth
   </div>;
 }
 
+// ─── PIE CHART ────────────────────────────────────────────────────────────────
+const PIE_COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6","#a855f7","#eab308"];
+
+function PieChart({ holdings, prices }: { holdings: Holding[]; prices: Record<string, PriceData> }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"stock" | "sector">("stock");
+
+  if (holdings.length === 0) return (
+    <div style={{ textAlign: "center", padding: "40px 20px", color: C.muted, fontSize: 14 }}>Add positions to see allocation chart</div>
+  );
+
+  // Calculate values
+  const items = holdings.map((h, i) => {
+    const price = prices[h.ticker]?.price ?? h.avg_buy;
+    const value = price * h.shares;
+    const sector = (prices[h.ticker] as any)?.sector || "Other";
+    return { ticker: h.ticker, name: h.name, value, sector, color: PIE_COLORS[i % PIE_COLORS.length] };
+  }).filter(x => x.value > 0);
+
+  const total = items.reduce((s, x) => s + x.value, 0);
+  if (total === 0) return null;
+
+  // Group by sector if needed
+  const displayItems = activeTab === "stock" ? items : Object.values(
+    items.reduce((acc: Record<string, any>, x, i) => {
+      if (!acc[x.sector]) acc[x.sector] = { ticker: x.sector, name: x.sector, value: 0, sector: x.sector, color: PIE_COLORS[Object.keys(acc).length % PIE_COLORS.length] };
+      acc[x.sector].value += x.value;
+      return acc;
+    }, {})
+  );
+
+  // Draw SVG pie
+  const cx = 110, cy = 110, r = 90, innerR = 50;
+  let angle = -Math.PI / 2;
+  const slices = displayItems.map((item, i) => {
+    const pct = item.value / total;
+    const startAngle = angle;
+    angle += pct * 2 * Math.PI;
+    const endAngle = angle;
+    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+    const ix1 = cx + innerR * Math.cos(startAngle), iy1 = cy + innerR * Math.sin(startAngle);
+    const ix2 = cx + innerR * Math.cos(endAngle),   iy2 = cy + innerR * Math.sin(endAngle);
+    const large = pct > 0.5 ? 1 : 0;
+    const path = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`;
+    return { ...item, path, pct, i };
+  });
+
+  const hoveredItem = hovered !== null ? slices[hovered] : null;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button className={`tab-btn ${activeTab === "stock" ? "active" : ""}`} onClick={() => setActiveTab("stock")} style={{ fontSize: 12, padding: "5px 12px" }}>By Stock</button>
+        <button className={`tab-btn ${activeTab === "sector" ? "active" : ""}`} onClick={() => setActiveTab("sector")} style={{ fontSize: 12, padding: "5px 12px" }}>By Sector</button>
+      </div>
+      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <svg width={220} height={220} viewBox="0 0 220 220">
+            {slices.map((s, i) => (
+              <path key={i} d={s.path} fill={s.color}
+                opacity={hovered === null || hovered === i ? 1 : 0.4}
+                style={{ cursor: "pointer", transition: "opacity 0.2s", transform: hovered === i ? `scale(1.04)` : "scale(1)", transformOrigin: `${cx}px ${cy}px` }}
+                onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
+            ))}
+            <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontSize: 12, fill: C.muted, fontFamily: "Instrument Sans" }}>
+              {hoveredItem ? hoveredItem.ticker : "Total"}
+            </text>
+            <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: 13, fill: C.text, fontFamily: "JetBrains Mono", fontWeight: 700 }}>
+              {hoveredItem ? `${(hoveredItem.pct * 100).toFixed(1)}%` : `€${(total/1000).toFixed(1)}k`}
+            </text>
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          {slices.map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer" }}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.ticker}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.mutedLight, fontFamily: "JetBrains Mono" }}>{(s.pct * 100).toFixed(1)}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CSV IMPORTER ─────────────────────────────────────────────────────────────
 interface ParsedPosition { ticker: string; shares: number; avgBuy: number; name: string; }
 
@@ -609,6 +700,16 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
       <StatCard label="Total P&L" value={`${totalPL >= 0 ? "+" : ""}€${totalPL.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} accent={totalPL >= 0 ? C.green : C.red} sub={`${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%`} delay={2} />
       <StatCard label="Positions" value={`${holdings.length}/${user.plan === "free" ? limit : "∞"}`} delay={3} />
     </div>
+    {holdings.length > 0 && (
+      <div className="card anim-fadeUp" style={{ marginBottom: 20 }}>
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🥧 Portfolio Allocation</span>
+        </div>
+        <div style={{ padding: 20 }}>
+          <PieChart holdings={holdings} prices={prices} />
+        </div>
+      </div>
+    )}
     <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
       <div>
         <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
