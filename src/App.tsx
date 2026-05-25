@@ -463,17 +463,20 @@ function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImp
       return;
     }
     const toImport = preview.slice(0, remaining);
-    if (toImport.length < preview.length) {
-      setError(`ℹ️ Free plan: importing ${toImport.length} of ${preview.length} positions. Upgrade to Pro in Account tab for unlimited!`);
-    }
     const rows = toImport.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
     const { data, error: err } = await supabase.from("holdings").insert(rows).select();
     if (err) { setError("Import failed. Please try again."); setImporting(false); return; }
     onImported(data || []);
-    setImported(true);
-    setPreview([]);
     setImporting(false);
-    setTimeout(() => { setShow(false); setImported(false); }, 2000);
+    if (toImport.length < preview.length) {
+      // Show upgrade prompt instead of success
+      setPreview([]);
+      setError(`✅ Imported ${toImport.length} positions. ⚠️ ${preview.length - toImport.length} position(s) skipped — Free plan is limited to ${limit}. Go to Account → Upgrade to Pro for unlimited positions!`);
+    } else {
+      setImported(true);
+      setPreview([]);
+      setTimeout(() => { setShow(false); setImported(false); }, 2000);
+    }
   };
 
   if (!show) return null;
