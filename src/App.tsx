@@ -430,6 +430,7 @@ function parseCSV(text: string): ParsedPosition[] {
 
 function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user: Profile; onImported: (holdings: any[]) => void; show: boolean; setShow: (v: boolean) => void; onUpgradeClick: () => void }) {
   const [preview, setPreview] = useState<ParsedPosition[]>([]);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [error, setError]     = useState("");
   const [importing, setImporting] = useState(false);
   const [imported, setImported]   = useState(false);
@@ -438,7 +439,7 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(""); setPreview([]); setImported(false);
+    setError(""); setPreview([]); setImported(false); setShowUpgrade(false);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
@@ -458,7 +459,7 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
     const { count } = await supabase.from("holdings").select("id", { count: "exact", head: true }).eq("user_id", user.id);
     const remaining = limit - (count || 0);
     if (remaining <= 0) {
-      setError(`⚠️ You have reached the ${limit} position limit on the Free plan. Go to Account → Upgrade to Pro for unlimited positions!`);
+      setError(`⚠️ You have reached the ${limit} position limit on the Free plan.`); setShowUpgrade(true);
       setImporting(false);
       return;
     }
@@ -471,7 +472,7 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
     if (toImport.length < preview.length) {
       // Show upgrade prompt instead of success
       setPreview([]);
-      setError(`✅ Imported ${toImport.length} positions. ⚠️ ${preview.length - toImport.length} position(s) skipped — Free plan is limited to ${limit}. Go to Account → Upgrade to Pro for unlimited positions!`);
+      setError(`✅ Imported ${toImport.length} of ${preview.length} positions. ${preview.length - toImport.length} skipped — Free plan is limited to ${limit}.`); setShowUpgrade(true);
     } else {
       setImported(true);
       setPreview([]);
@@ -525,9 +526,11 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
               ))}
             </div>
             {error && (
-              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12, background: error.startsWith("✅") ? C.greenDim : C.goldDim, border: `1px solid ${error.startsWith("✅") ? C.green + "44" : C.gold + "44"}` }}>
-                <div style={{ color: error.startsWith("✅") ? C.green : C.gold, marginBottom: 10 }}>{error}</div>
-                {!error.startsWith("✅") && user.plan === "free" && (
+              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12,
+                background: showUpgrade ? C.goldDim : error.startsWith("✅") ? C.greenDim : C.redDim,
+                border: `1px solid ${showUpgrade ? C.gold + "44" : error.startsWith("✅") ? C.green + "44" : C.red + "44"}` }}>
+                <div style={{ color: showUpgrade ? C.gold : error.startsWith("✅") ? C.green : C.red, marginBottom: showUpgrade ? 10 : 0 }}>{error}</div>
+                {showUpgrade && (
                   <button className="btn-primary" onClick={() => { setShow(false); onUpgradeClick(); }}
                     style={{ fontSize: 13, padding: "8px 16px" }}>
                     ⚡ Upgrade to Pro →
