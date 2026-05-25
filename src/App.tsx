@@ -702,6 +702,7 @@ function AlertsTab({ prices, user }: { prices: Record<string, PriceData>; user: 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [form, setForm] = useState({ ticker: "", type: "above" as "above" | "below", target: "" });
   const [log, setLog] = useState<{ id: string; msg: string; price: string; time: string }[]>([]);
+  const [alertError, setAlertError] = useState("");
   const limit = user.plan === "free" ? 3 : 999;
 
   useEffect(() => {
@@ -733,7 +734,7 @@ function AlertsTab({ prices, user }: { prices: Record<string, PriceData>; user: 
   const addAlert = async () => {
     const ticker = form.ticker.trim().toUpperCase();
     if (!ticker || !form.target) return;
-    if (alerts.length >= limit) { alert(`Free plan: max ${limit} alerts. Upgrade for unlimited.`); return; }
+    if (alerts.length >= limit) { setAlertError(`⚠️ Free plan is limited to ${limit} alerts. Upgrade to Pro for unlimited!`); return; }
     const { data, error } = await supabase.from("alerts").insert({ user_id: user.id, ticker, type: form.type, target: parseFloat(form.target), triggered: false }).select().single();
     if (error) return;
     setAlerts(prev => [...prev, data]);
@@ -754,7 +755,14 @@ function AlertsTab({ prices, user }: { prices: Record<string, PriceData>; user: 
             <option value="below">Price drops below →</option>
           </select>
           <input className="input-field" type="number" placeholder="Target price (€)" value={form.target} onChange={e => setForm(p => ({ ...p, target: e.target.value }))} />
-          <button className="btn-primary" onClick={addAlert}>🔔 Set alert</button>
+          {alertError && (
+            <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, background: C.goldDim, border: `1px solid ${C.gold}44`, color: C.gold }}>
+              {alertError}
+              <button className="btn-primary" onClick={() => { setAlertError(""); window.dispatchEvent(new CustomEvent("goto-settings")); }}
+                style={{ fontSize: 11, padding: "4px 10px", marginLeft: 8 }}>⚡ Upgrade</button>
+            </div>
+          )}
+          <button className="btn-primary" onClick={() => { setAlertError(""); addAlert(); }}>🔔 Set alert</button>
         </div>
       </div>
       <div className="card anim-fadeUp-1">
@@ -1052,7 +1060,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {messages.length > 0 && <button className="btn-ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setMessages([])}>Clear chat</button>}
-          {!isPro && <Badge color={C.gold}>PRO REQUIRED</Badge>}
+          {user.plan === "free" && canChat && <Badge color={C.gold}>{AI_FREE_LIMIT - chatUsage} free {AI_FREE_LIMIT - chatUsage === 1 ? "message" : "messages"} left</Badge>}
         </div>
       </div>
     </div>
@@ -1061,10 +1069,15 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
         <div style={{ fontSize: 40, marginBottom: 12 }}>💬</div>
         <div className="syne" style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Ask me anything about your portfolio</div>
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>I know your holdings, current prices and P&L in real time.</div>
-        {isPro ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {SUGGESTED_QUESTIONS.map((q, i) => <button key={i} onClick={() => sendMessage(q)}
-            style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 20, padding: "7px 14px", fontSize: 12, color: C.accent, cursor: "pointer", transition: "all 0.2s" }}>{q}</button>)}
-        </div> : <div style={{ fontSize: 13, color: C.gold, background: C.goldDim, padding: "12px 20px", borderRadius: 10, display: "inline-block" }}>Upgrade to Pro or Elite to chat with your AI advisor</div>}
+        {!canChat ? <AIUpgradePrompt /> : (
+          <>
+            {user.plan === "free" && <div style={{ fontSize: 12, color: C.gold, background: C.goldDim, padding: "6px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>🎁 {AI_FREE_LIMIT - chatUsage} free {AI_FREE_LIMIT - chatUsage === 1 ? "message" : "messages"} remaining</div>}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+              {SUGGESTED_QUESTIONS.map((q, i) => <button key={i} onClick={() => sendMessage(q)}
+                style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 20, padding: "7px 14px", fontSize: 12, color: C.accent, cursor: "pointer", transition: "all 0.2s" }}>{q}</button>)}
+            </div>
+          </>
+        )}
       </div>}
       {messages.map((m, i) => <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.3s ease" }}>
         {m.role === "assistant" && <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10, flexShrink: 0, alignSelf: "flex-end" }}>🤖</div>}
