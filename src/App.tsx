@@ -910,6 +910,39 @@ function DividendsTab({ user, prices }: { user: Profile; prices: Record<string, 
   </div>;
 }
 
+// ─── AI USAGE TRACKING ───────────────────────────────────────────────────────
+const AI_FREE_LIMIT = 3;
+
+function getAIUsage(userId: string): number {
+  try { return parseInt(localStorage.getItem(`ai_usage_${userId}`) || "0"); } catch { return 0; }
+}
+
+function incrementAIUsage(userId: string): number {
+  try {
+    const current = getAIUsage(userId);
+    const next = current + 1;
+    localStorage.setItem(`ai_usage_${userId}`, String(next));
+    return next;
+  } catch { return 0; }
+}
+
+function AIUpgradePrompt({ onClose }: { onClose?: () => void }) {
+  return (
+    <div style={{ textAlign: "center", padding: "32px 24px" }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
+      <div className="syne" style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>You have used your 3 free AI analyses</div>
+      <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+        Upgrade to Pro or Elite for unlimited AI analysis and chat — just €19/month.
+      </div>
+      <button className="btn-primary" onClick={() => { window.dispatchEvent(new CustomEvent("goto-settings")); if (onClose) onClose(); }}
+        style={{ fontSize: 15, padding: "12px 28px" }}>
+        ⚡ Upgrade to Pro →
+      </button>
+      <div style={{ fontSize: 12, color: C.muted, marginTop: 12 }}>Cancel anytime · 14 day free trial</div>
+    </div>
+  );
+}
+
 // ─── AI ANALYSE TAB ───────────────────────────────────────────────────────────
 function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
   const [loading, setLoading] = useState(false);
@@ -923,8 +956,11 @@ function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, 
   const buildSummary = () => holdings.length === 0 ? "No positions added yet." :
     holdings.map(h => { const p = prices[h.ticker] ?? { price: h.avg_buy, change: 0 }; const pct = ((p.price - h.avg_buy) / h.avg_buy * 100).toFixed(1); return `${h.ticker} (${h.name}): ${h.shares} shares, avg buy €${h.avg_buy}, current €${p.price.toFixed(2)}, P&L: ${pct}%`; }).join("\n");
 
+  const usage = getAIUsage(user.id);
+  const canUseAI = user.plan !== "free" || usage < AI_FREE_LIMIT;
+
   const runAnalysis = async () => {
-    if (user.plan === "free") { alert("AI Analysis is available in Pro and Elite. Upgrade your plan."); return; }
+    if (user.plan === "free" && usage >= AI_FREE_LIMIT) { return; }
     setLoading(true); setResult(null);
     try {
       const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolioSummary: buildSummary(), plan: user.plan }) });
@@ -977,10 +1013,13 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
+  const chatUsage = getAIUsage(user.id);
+  const canChat = user.plan !== "free" || chatUsage < AI_FREE_LIMIT;
+
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg || loading) return;
-    if (user.plan === "free") { alert("AI Chat is available in Pro and Elite. Upgrade your plan."); return; }
+    if (user.plan === "free" && chatUsage >= AI_FREE_LIMIT) return;
     setInput("");
     const userMsg: ChatMessage = { role: "user", content: msg };
     setMessages(prev => [...prev, userMsg]);
@@ -989,12 +1028,13 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
       const history = [...messages.slice(-10), userMsg].map(m => ({ role: m.role, content: m.content }));
       const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }) });
       const data = await resp.json();
+      if (user.plan === "free") incrementAIUsage(user.id);
       setMessages(prev => [...prev, { role: "assistant", content: data.result || data.error || "Sorry, I could not respond." }]);
     } catch { setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please try again." }]); }
     setLoading(false);
   };
 
-  const isPro = user.plan !== "free";
+  const isPro = canChat;
 
   return <div style={{ maxWidth: 760, display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", minHeight: 500 }}>
     <div className="card anim-fadeUp" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}>
@@ -1366,8 +1406,8 @@ export default function App() {
     { id: "markt",     label: "🌐 Market" },
     { id: "alerts",    label: "🔔 Alerts" },
     { id: "dividends", label: "💰 Dividends" },
-    { id: "ai",        label: "🤖 AI Analysis", pro: true },
-    { id: "chat",      label: "💬 AI Chat", pro: true },
+    { id: "ai",        label: "🤖 AI Analysis" },
+    { id: "chat",      label: "💬 AI Chat" },
     { id: "support",   label: "🆘 Support" },
     { id: "settings",  label: "⚙️ Account" },
   ];
@@ -1393,7 +1433,7 @@ export default function App() {
     <TickerBanner prices={prices} />
     <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "10px 28px", display: "flex", gap: 4, overflowX: "auto" }}>
       {TABS.map(t => <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-        {t.label}{t.pro && user?.plan === "free" && <span style={{ marginLeft: 4, fontSize: 10, color: C.gold }}>PRO</span>}
+        {t.label}
       </button>)}
     </div>
     <div style={{ padding: 28, maxWidth: 1300, margin: "0 auto" }}>
