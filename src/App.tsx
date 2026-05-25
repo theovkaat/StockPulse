@@ -472,8 +472,8 @@ function CSVImporter({ user, onImported }: { user: Profile; onImported: (holding
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000088", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
-      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 560, padding: 28 }}>
+    <div style={{ position: "fixed", inset: 0, background: "#00000088", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 680, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>📁 Import Portfolio CSV</div>
           <button onClick={() => { setShow(false); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>✕</button>
@@ -503,7 +503,7 @@ function CSVImporter({ user, onImported }: { user: Profile; onImported: (holding
           <div>
             <div style={{ fontSize: 13, color: C.green, marginBottom: 12 }}>✅ Found {preview.length} positions — review before importing:</div>
             <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 16 }}>
-              <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "8px 14px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+              <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px", padding: "8px 14px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
                 <span>TICKER</span><span style={{ textAlign: "right" }}>SHARES</span><span style={{ textAlign: "right" }}>AVG PRICE</span>
               </div>
               {preview.map((p, i) => (
