@@ -455,7 +455,12 @@ function CSVImporter({ user, onImported }: { user: Profile; onImported: (holding
 
   const doImport = async () => {
     setImporting(true);
-    const rows = preview.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
+    const limit = user.plan === "free" ? 5 : 999;
+    const remaining = limit - (await supabase.from("holdings").select("id", { count: "exact" }).eq("user_id", user.id)).count!;
+    const toImport = preview.slice(0, Math.max(0, remaining));
+    if (toImport.length === 0) { setError(`⚠️ You have reached the ${limit} position limit on the Free plan. Upgrade to Pro for unlimited positions!`); setImporting(false); return; }
+    if (toImport.length < preview.length) { setError(`ℹ️ Only importing ${toImport.length} of ${preview.length} positions due to Free plan limit. Upgrade to Pro for unlimited!`); }
+    const rows = toImport.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
     const { data, error: err } = await supabase.from("holdings").insert(rows).select();
     if (err) { setError("Import failed. Please try again."); setImporting(false); return; }
     onImported(data || []);
@@ -472,8 +477,8 @@ function CSVImporter({ user, onImported }: { user: Profile; onImported: (holding
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000088", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 680, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "40px 16px", overflowY: "auto" }}>
+      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 700, padding: 28, marginBottom: 40 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>📁 Import Portfolio CSV</div>
           <button onClick={() => { setShow(false); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>✕</button>
@@ -555,7 +560,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
     setAddError("");
     const ticker = form.ticker.trim().toUpperCase();
     if (!ticker || !form.shares || !form.avgBuy) { setAddError("Fill in all fields."); return; }
-    if (holdings.length >= limit) { setAddError(`Free plan is limited to ${limit} positions. Upgrade for unlimited.`); return; }
+    if (holdings.length >= limit) { setAddError(`⚠️ You have reached the ${limit} position limit on the Free plan. Upgrade to Pro for unlimited positions!`); return; }
     const shares = parseFloat(form.shares);
     const avgBuy = parseFloat(form.avgBuy);
     if (isNaN(shares) || shares <= 0) { setAddError("Invalid number of shares."); return; }
