@@ -427,14 +427,14 @@ function PieChart({ holdings, prices }: { holdings: Holding[]; prices: Record<st
             </text>
           </svg>
         </div>
-        <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ width: 260 }}>
           {slices.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", padding: "4px 8px", borderRadius: 8, background: hovered === i ? C.accentDim : "transparent" }}
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", padding: "4px 8px", borderRadius: 8, background: hovered === i ? C.accentDim : "transparent" }}
               onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.text, minWidth: 50 }}>{s.ticker}</div>
-              <div style={{ fontSize: 11, color: C.muted, flex: 1 }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: s.color, fontFamily: "JetBrains Mono", minWidth: 42, textAlign: "right" }}>{(s.pct * 100).toFixed(1)}%</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.text, width: 48 }}>{s.ticker}</div>
+              <div style={{ fontSize: 11, color: C.muted, width: 80 }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: s.color, fontFamily: "JetBrains Mono", width: 44, textAlign: "right" }}>{(s.pct * 100).toFixed(1)}%</div>
             </div>
           ))}
         </div>
