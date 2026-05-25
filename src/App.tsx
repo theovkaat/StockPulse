@@ -965,6 +965,7 @@ function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, 
     try {
       const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolioSummary: buildSummary(), plan: user.plan }) });
       const data = await resp.json();
+      if (user.plan === "free") { const next = incrementAIUsage(user.id, "analyze"); setUsage(next); }
       setResult(data.result || data.error || "Could not load analysis.");
     } catch { setResult("❌ Could not connect to AI. Please try again."); }
     setLoading(false);
@@ -975,20 +976,23 @@ function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, 
       <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>🤖 AI Portfolio Analysis</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>Powered by Claude · {user.plan === "free" ? "Upgrade required" : `${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan`}</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+            Powered by Claude · {user.plan === "free" ? `${AI_FREE_LIMIT - usage} free ${AI_FREE_LIMIT - usage === 1 ? "analysis" : "analyses"} remaining` : `${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan · Unlimited`}
+          </div>
         </div>
-        <button className="btn-primary" onClick={runAnalysis} disabled={loading || user.plan === "free"} style={{ display: "flex", alignItems: "center", gap: 8, opacity: user.plan === "free" ? 0.5 : 1 }}>
+        {canUseAI && <button className="btn-primary" onClick={runAnalysis} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {loading ? <><Spinner /> Analyzing...</> : "▶ Analyze now"}
-        </button>
+        </button>}
       </div>
       <div style={{ padding: "16px 24px" }}>
-        {!result && !loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
+        {!canUseAI && <AIUpgradePrompt />}
+        {canUseAI && !result && !loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
           <div style={{ fontSize: 14 }}>Click "Analyze now" for an AI analysis of your portfolio.</div>
-          {user.plan === "free" && <div style={{ fontSize: 13, color: C.accent, marginTop: 8 }}>Upgrade to Pro or Elite to use AI analysis.</div>}
+          {user.plan === "free" && <div style={{ fontSize: 13, color: C.gold, marginTop: 8 }}>🎁 {AI_FREE_LIMIT - usage} free {AI_FREE_LIMIT - usage === 1 ? "analysis" : "analyses"} remaining.</div>}
         </div>}
-        {loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}><div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Spinner /></div><div style={{ fontSize: 14 }}>AI is analyzing your portfolio...</div></div>}
-        {result && <div style={{ fontSize: 14, lineHeight: 1.85, color: C.text, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{result}</div>}
+        {canUseAI && loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}><div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Spinner /></div><div style={{ fontSize: 14 }}>AI is analyzing your portfolio...</div></div>}
+        {canUseAI && result && <div style={{ fontSize: 14, lineHeight: 1.85, color: C.text, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{result}</div>}
       </div>
     </div>
   </div>;
