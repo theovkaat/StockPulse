@@ -428,7 +428,7 @@ function parseCSV(text: string): ParsedPosition[] {
     .filter(Boolean) as ParsedPosition[];
 }
 
-function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImported: (holdings: any[]) => void; show: boolean; setShow: (v: boolean) => void }) {
+function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user: Profile; onImported: (holdings: any[]) => void; show: boolean; setShow: (v: boolean) => void; onUpgradeClick: () => void }) {
   const [preview, setPreview] = useState<ParsedPosition[]>([]);
   const [error, setError]     = useState("");
   const [importing, setImporting] = useState(false);
@@ -524,7 +524,17 @@ function CSVImporter({ user, onImported, show, setShow }: { user: Profile; onImp
                 </div>
               ))}
             </div>
-            {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "10px 14px", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+            {error && (
+              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12, background: error.includes("✅") ? C.greenDim : error.includes("ℹ️") || error.includes("⚠️") ? C.goldDim : C.redDim, border: `1px solid ${error.includes("✅") ? C.green + "44" : error.includes("ℹ️") || error.includes("⚠️") ? C.gold + "44" : C.red + "44"}` }}>
+                <div style={{ color: error.includes("✅") ? C.green : error.includes("ℹ️") || error.includes("⚠️") ? C.gold : C.red, marginBottom: error.includes("limit") || error.includes("Upgrade") ? 10 : 0 }}>{error}</div>
+                {(error.includes("limit") || error.includes("Upgrade") || error.includes("Pro")) && (
+                  <button className="btn-primary" onClick={() => { setShow(false); onUpgradeClick(); }}
+                    style={{ fontSize: 13, padding: "8px 16px", marginTop: 4 }}>
+                    ⚡ Upgrade to Pro →
+                  </button>
+                )}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn-primary" onClick={doImport} disabled={importing} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {importing ? <><Spinner /> Importing...</> : `✅ Import ${preview.length} positions`}
@@ -644,7 +654,7 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
         }
       </div>
     </div>
-    {showImporterModal && <CSVImporter user={user} onImported={(newH) => { setHoldings(prev => [...prev, ...newH]); }} show={showImporterModal} setShow={setShowImporterModal} />}
+    {showImporterModal && <CSVImporter user={user} onImported={(newH) => { setHoldings(prev => [...prev, ...newH]); }} show={showImporterModal} setShow={setShowImporterModal} onUpgradeClick={() => { setShowImporterModal(false); /* navigate to settings */ window.dispatchEvent(new CustomEvent("goto-settings")); }} />}
   </div>;
 }
 
@@ -1283,6 +1293,13 @@ export default function App() {
 
   const allTickers = MARKET_TICKERS.map(m => m.ticker);
   const { prices, lastUpdated, refresh } = useLivePrices(allTickers);
+
+  // Listen for goto-settings event from CSV importer
+  useEffect(() => {
+    const handler = () => setTab("settings");
+    window.addEventListener("goto-settings", handler);
+    return () => window.removeEventListener("goto-settings", handler);
+  }, []);
 
   // Check existing session on load
   useEffect(() => {
