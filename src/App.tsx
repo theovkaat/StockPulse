@@ -913,15 +913,15 @@ function DividendsTab({ user, prices }: { user: Profile; prices: Record<string, 
 // ─── AI USAGE TRACKING ───────────────────────────────────────────────────────
 const AI_FREE_LIMIT = 3;
 
-function getAIUsage(userId: string): number {
-  try { return parseInt(localStorage.getItem(`ai_usage_${userId}`) || "0"); } catch { return 0; }
+function getAIUsage(userId: string, type: "analyze" | "chat"): number {
+  try { return parseInt(localStorage.getItem(`ai_${type}_${userId}`) || "0"); } catch { return 0; }
 }
 
-function incrementAIUsage(userId: string): number {
+function incrementAIUsage(userId: string, type: "analyze" | "chat"): number {
   try {
-    const current = getAIUsage(userId);
+    const current = getAIUsage(userId, type);
     const next = current + 1;
-    localStorage.setItem(`ai_usage_${userId}`, String(next));
+    localStorage.setItem(`ai_${type}_${userId}`, String(next));
     return next;
   } catch { return 0; }
 }
@@ -956,7 +956,7 @@ function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, 
   const buildSummary = () => holdings.length === 0 ? "No positions added yet." :
     holdings.map(h => { const p = prices[h.ticker] ?? { price: h.avg_buy, change: 0 }; const pct = ((p.price - h.avg_buy) / h.avg_buy * 100).toFixed(1); return `${h.ticker} (${h.name}): ${h.shares} shares, avg buy €${h.avg_buy}, current €${p.price.toFixed(2)}, P&L: ${pct}%`; }).join("\n");
 
-  const usage = getAIUsage(user.id);
+  const [usage, setUsage] = useState(() => getAIUsage(user.id, "analyze"));
   const canUseAI = user.plan !== "free" || usage < AI_FREE_LIMIT;
 
   const runAnalysis = async () => {
@@ -1013,7 +1013,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
-  const chatUsage = getAIUsage(user.id);
+  const [chatUsage, setChatUsage] = useState(() => getAIUsage(user.id, "chat"));
   const canChat = user.plan !== "free" || chatUsage < AI_FREE_LIMIT;
 
   const sendMessage = async (text?: string) => {
@@ -1028,7 +1028,7 @@ function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, Pri
       const history = [...messages.slice(-10), userMsg].map(m => ({ role: m.role, content: m.content }));
       const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }) });
       const data = await resp.json();
-      if (user.plan === "free") incrementAIUsage(user.id);
+      if (user.plan === "free") { const next = incrementAIUsage(user.id, "chat"); setChatUsage(next); }
       setMessages(prev => [...prev, { role: "assistant", content: data.result || data.error || "Sorry, I could not respond." }]);
     } catch { setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please try again." }]); }
     setLoading(false);
