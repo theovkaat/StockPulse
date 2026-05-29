@@ -443,6 +443,130 @@ function PieChart({ holdings, prices }: { holdings: Holding[]; prices: Record<st
   );
 }
 
+// ─── STOCK SEARCH ────────────────────────────────────────────────────────────
+interface StockResult { symbol: string; description: string; type: string; }
+
+function StockSearch({ value, onChange, onSelect, prices }: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (ticker: string, name: string, price: number) => void;
+  prices: Record<string, PriceData>;
+}) {
+  const [results, setResults] = useState<StockResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [show, setShow] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const searchStock = async (query: string) => {
+    if (query.length < 1) { setResults([]); setShow(false); return; }
+    setLoading(true);
+    try {
+      // First check our known tickers
+      const known = MARKET_TICKERS.filter(m =>
+        m.ticker.startsWith(query.toUpperCase()) || m.name.toLowerCase().includes(query.toLowerCase())
+      ).map(m => ({ symbol: m.ticker, description: m.name, type: "Common Stock" }));
+
+      // Then search Finnhub for worldwide stocks
+      const finnhubKey = import.meta.env.VITE_FINNHUB_API_KEY;
+      let finnhubResults: StockResult[] = [];
+      if (finnhubKey && query.length >= 2) {
+        try {
+          const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${finnhubKey}`);
+          const d = await r.json();
+          finnhubResults = (d.result || [])
+            .filter((x: any) => x.type === "Common Stock" || x.type === "EQS")
+            .slice(0, 8)
+            .map((x: any) => ({ symbol: x.symbol, description: x.description, type: x.type }));
+        } catch {}
+      }
+
+      // Merge — known first, then Finnhub, deduplicate
+      const seen = new Set(known.map(x => x.symbol));
+      const merged = [...known, ...finnhubResults.filter(x => !seen.has(x.symbol))].slice(0, 10);
+      setResults(merged);
+      setShow(merged.length > 0);
+    } catch {}
+    setLoading(false);
+  };
+
+  const handleChange = (v: string) => {
+    onChange(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchStock(v), 300);
+  };
+
+  const handleSelect = async (result: StockResult) => {
+    const ticker = result.symbol;
+    const name = result.description;
+    // Try to get current price
+    let price = prices[ticker]?.price ?? 0;
+    if (!price && import.meta.env.VITE_FINNHUB_API_KEY) {
+      try {
+        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${import.meta.env.VITE_FINNHUB_API_KEY}`);
+        const d = await r.json();
+        price = d.c ?? 0;
+      } catch {}
+    }
+    onSelect(ticker, name, price);
+    setShow(false);
+    setResults([]);
+  };
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <input className="input-field" placeholder="Search stock (e.g. ASML, Apple, Nvidia...)"
+          value={value} onChange={e => handleChange(e.target.value)}
+          onFocus={() => value.length > 0 && results.length > 0 && setShow(true)}
+          style={{ paddingRight: 32 }} />
+        {loading && <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)" }}><Spinner /></div>}
+      </div>
+      {show && results.length > 0 && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, zIndex: 100, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", marginTop: 4 }}>
+          {results.map((r, i) => {
+            const curPrice = prices[r.symbol]?.price ?? 0;
+            const change = prices[r.symbol]?.change ?? 0;
+            return (
+              <div key={i} onClick={() => handleSelect(r)}
+                style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: i < results.length - 1 ? `1px solid ${C.border}` : "none", transition: "background 0.15s" }}
+                onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)}
+                onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: C.accentDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.accent, fontFamily: "JetBrains Mono" }}>
+                    {r.symbol.slice(0, 4)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{r.symbol}</div>
+                    <div style={{ fontSize: 11, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</div>
+                  </div>
+                </div>
+                {curPrice > 0 && (
+                  <div style={{ textAlign: "right" }}>
+                    <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.text }}>€{curPrice.toFixed(2)}</div>
+                    <div className="mono" style={{ fontSize: 11, color: change >= 0 ? C.green : C.red }}>{change >= 0 ? "+" : ""}{change.toFixed(2)}%</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CSV IMPORTER ─────────────────────────────────────────────────────────────
 interface ParsedPosition { ticker: string; shares: number; avgBuy: number; name: string; }
 
@@ -651,6 +775,8 @@ function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user
 function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record<string, PriceData>; user: Profile; onRefresh: () => void; lastUpdated: string }) {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [form, setForm] = useState({ ticker: "", shares: "", avgBuy: "" });
+  const [stockName, setStockName] = useState("");
+  const [tickerSearch, setTickerSearch] = useState("");
   const [search, setSearch] = useState("");
   const [addError, setAddError] = useState("");
   const [loadingData, setLoadingData] = useState(true);
@@ -674,10 +800,13 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
     if (isNaN(shares) || shares <= 0) { setAddError("Invalid number of shares."); return; }
     if (isNaN(avgBuy) || avgBuy <= 0) { setAddError("Invalid average buy price."); return; }
     const meta = MARKET_TICKERS.find(m => m.ticker === ticker);
-    const { data, error } = await supabase.from("holdings").insert({ user_id: user.id, ticker, name: meta?.name ?? ticker, shares, avg_buy: avgBuy }).select().single();
+    const name = stockName || meta?.name || ticker;
+    const { data, error } = await supabase.from("holdings").insert({ user_id: user.id, ticker, name, shares, avg_buy: avgBuy }).select().single();
     if (error) { setAddError("Could not save. Please try again."); return; }
     setHoldings(prev => [...prev, data]);
     setForm({ ticker: "", shares: "", avgBuy: "" });
+    setTickerSearch("");
+    setStockName("");
   };
 
   const removeHolding = async (id: string) => {
@@ -713,7 +842,22 @@ function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record
         <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
           <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span><button onClick={() => setShowImporterModal(true)} className="btn-ghost" style={{ fontSize: 13, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 }}>📁 Import CSV</button></div>
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-            <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))} />
+            <StockSearch
+              value={tickerSearch}
+              onChange={v => { setTickerSearch(v); setForm(p => ({ ...p, ticker: v.toUpperCase() })); }}
+              onSelect={(ticker, name, price) => {
+                setForm(p => ({ ...p, ticker, avgBuy: price > 0 ? price.toFixed(2) : p.avgBuy }));
+                setTickerSearch(ticker);
+                setStockName(name);
+                setAddError("");
+              }}
+              prices={prices}
+            />
+            {stockName && form.ticker && (
+              <div style={{ fontSize: 12, color: C.green, background: C.greenDim, padding: "6px 10px", borderRadius: 7, display: "flex", alignItems: "center", gap: 6 }}>
+                ✓ {stockName} selected
+              </div>
+            )}
             <input className="input-field" type="number" placeholder="Number of shares" value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
             <input className="input-field" type="number" placeholder="Average buy price (€)" value={form.avgBuy} onChange={e => setForm(p => ({ ...p, avgBuy: e.target.value }))} />
             {addError && <div style={{ fontSize: 12, color: C.red, background: C.redDim, padding: "8px 10px", borderRadius: 7 }}>{addError}</div>}
