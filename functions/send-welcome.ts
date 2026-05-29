@@ -6,13 +6,26 @@ export async function onRequestPost(context: any) {
 
   try {
     const body = await context.request.json();
-    const { email, name } = body;
+    
+    // Handle both Supabase webhook format and Make format
+    let email: string;
+    let name: string;
+    
+    if (body.record) {
+      // Supabase webhook format: { type: "INSERT", table: "users", record: { email, ... } }
+      email = body.record.email;
+      name = body.record.raw_user_meta_data?.name || email?.split("@")[0] || "there";
+    } else {
+      // Make format: { email, name }
+      email = body.email;
+      name = body.name || email?.split("@")[0] || "there";
+    }
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Missing email" }), { status: 400 });
     }
 
-    const firstName = name ? name.split(" ")[0] : email.split("@")[0];
+    const firstName = name.split(" ")[0];
 
     const html = `<!DOCTYPE html>
 <html>
@@ -49,7 +62,7 @@ export async function onRequestPost(context: any) {
       body: JSON.stringify({
         from: "StockPulse <hello@stockpulse.fit>",
         to: [email],
-        subject: "Welcome to StockPulse! 🚀",
+        subject: "Welcome to StockPulse! \uD83D\uDE80",
         html,
       }),
     });
