@@ -475,7 +475,7 @@ function StockSearch({ value, onChange, onSelect, prices }: {
     try {
       // First check our known tickers
       const known = MARKET_TICKERS.filter(m =>
-        m.ticker.startsWith(query.toUpperCase()) || m.name.toLowerCase().includes(query.toLowerCase())
+        m.ticker.startsWith(query.toUpperCase()) || m.name.toLowerCase().startsWith(query.toLowerCase())
       ).map(m => ({ symbol: m.ticker, description: m.name, type: "Common Stock" }));
 
       // Then search Finnhub for worldwide stocks
