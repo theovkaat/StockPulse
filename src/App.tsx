@@ -1,1710 +1,858 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "./supabase";
-import type { Profile, Holding, Alert } from "./supabase";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
-const THEMES: Record<string, typeof C_DEFAULT> = {
-  dark: {
-    bg: "#07090f", surface: "#0d1117", card: "#111827", cardHover: "#151f30",
-    border: "#1a2744", borderLight: "#243352", accent: "#3b82f6",
-    accentGlow: "#3b82f644", accentDim: "#3b82f618", gold: "#f59e0b",
-    goldDim: "#f59e0b22", green: "#10b981", greenDim: "#10b98122",
-    red: "#ef4444", redDim: "#ef444422", text: "#f1f5f9",
-    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
-  },
-  navy: {
-    bg: "#0a0f1e", surface: "#0f1629", card: "#141d35", cardHover: "#1a2440",
-    border: "#1e2d50", borderLight: "#2a3d6a", accent: "#60a5fa",
-    accentGlow: "#60a5fa44", accentDim: "#60a5fa18", gold: "#fbbf24",
-    goldDim: "#fbbf2422", green: "#34d399", greenDim: "#34d39922",
-    red: "#f87171", redDim: "#f8717122", text: "#e2e8f0",
-    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
-  },
-  slate: {
-    bg: "#0f172a", surface: "#1e293b", card: "#243447", cardHover: "#2d3f55",
-    border: "#334155", borderLight: "#475569", accent: "#818cf8",
-    accentGlow: "#818cf844", accentDim: "#818cf818", gold: "#fbbf24",
-    goldDim: "#fbbf2422", green: "#4ade80", greenDim: "#4ade8022",
-    red: "#f87171", redDim: "#f8717122", text: "#f1f5f9",
-    muted: "#64748b", mutedLight: "#94a3b8", white: "#ffffff",
-  },
-  light: {
-    bg: "#f8fafc", surface: "#ffffff", card: "#f1f5f9", cardHover: "#e2e8f0",
-    border: "#cbd5e1", borderLight: "#94a3b8", accent: "#3b82f6",
-    accentGlow: "#3b82f644", accentDim: "#3b82f618", gold: "#d97706",
-    goldDim: "#d9770622", green: "#059669", greenDim: "#05966922",
-    red: "#dc2626", redDim: "#dc262622", text: "#0f172a",
-    muted: "#64748b", mutedLight: "#475569", white: "#ffffff",
-  },
-  forest: {
-    bg: "#0a1a0f", surface: "#0f2416", card: "#142d1c", cardHover: "#1a3824",
-    border: "#1e4428", borderLight: "#2d6040", accent: "#4ade80",
-    accentGlow: "#4ade8044", accentDim: "#4ade8018", gold: "#fbbf24",
-    goldDim: "#fbbf2422", green: "#34d399", greenDim: "#34d39922",
-    red: "#f87171", redDim: "#f8717122", text: "#f0fdf4",
-    muted: "#6b7280", mutedLight: "#9ca3af", white: "#ffffff",
-  },
+const C = {
+  bg: "#07090f",
+  surface: "#0d1117",
+  card: "#111827",
+  cardHover: "#151f30",
+  border: "#1a2744",
+  borderLight: "#243352",
+  accent: "#3b82f6",
+  accentGlow: "#3b82f644",
+  accentDim: "#3b82f618",
+  gold: "#f59e0b",
+  goldDim: "#f59e0b22",
+  green: "#10b981",
+  greenDim: "#10b98122",
+  red: "#ef4444",
+  redDim: "#ef444422",
+  text: "#f1f5f9",
+  muted: "#64748b",
+  mutedLight: "#94a3b8",
+  white: "#ffffff",
 };
 
-const THEME_LABELS: Record<string, { label: string; preview: string }> = {
-  dark:   { label: "Dark",   preview: "#07090f" },
-  navy:   { label: "Navy",   preview: "#0a0f1e" },
-  slate:  { label: "Slate",  preview: "#0f172a" },
-  light:  { label: "Light",  preview: "#f8fafc" },
-  forest: { label: "Forest", preview: "#0a1a0f" },
-};
-
-type ThemeColors = {
-  bg: string; surface: string; card: string; cardHover: string;
-  border: string; borderLight: string; accent: string;
-  accentGlow: string; accentDim: string; gold: string;
-  goldDim: string; green: string; greenDim: string;
-  red: string; redDim: string; text: string;
-  muted: string; mutedLight: string; white: string;
-};
-
-const C_DEFAULT: ThemeColors = THEMES.dark;
-let C: ThemeColors = THEMES.dark;
-
-const makeGlobalStyle = (C: ThemeColors) => `
+const GLOBAL_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body { background: ${C.bg}; color: ${C.text}; font-family: 'Instrument Sans', sans-serif; -webkit-font-smoothing: antialiased; }
-  ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-track { background: ${C.bg}; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
-  .mono { font-family: 'JetBrains Mono', monospace; } .syne { font-family: 'Syne', sans-serif; }
-  input, select, button, textarea { font-family: 'Instrument Sans', sans-serif; }
-  input:focus, select:focus, textarea:focus { outline: none; }
+  ::-webkit-scrollbar { width: 3px; } 
+  ::-webkit-scrollbar-track { background: ${C.bg}; } 
+  ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .syne { font-family: 'Syne', sans-serif; }
+  input, select, button { font-family: 'Instrument Sans', sans-serif; }
+  input:focus, select:focus { outline: none; }
+  
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
   @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
   @keyframes glow { 0%,100%{box-shadow:0 0 12px ${C.accentGlow}} 50%{box-shadow:0 0 28px ${C.accent}66} }
   @keyframes ping { 0%{transform:scale(1);opacity:1} 75%,100%{transform:scale(2);opacity:0} }
-  .anim-fadeUp   { animation: fadeUp 0.4s ease both; }
+  
+  .anim-fadeUp { animation: fadeUp 0.4s ease both; }
   .anim-fadeUp-1 { animation: fadeUp 0.4s 0.05s ease both; }
-  .anim-fadeUp-2 { animation: fadeUp 0.4s 0.10s ease both; }
+  .anim-fadeUp-2 { animation: fadeUp 0.4s 0.1s ease both; }
   .anim-fadeUp-3 { animation: fadeUp 0.4s 0.15s ease both; }
-  .anim-fadeUp-4 { animation: fadeUp 0.4s 0.20s ease both; }
-  .btn-primary { background: ${C.accent}; color: white; border: none; border-radius: 10px; padding: 11px 24px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+  .anim-fadeUp-4 { animation: fadeUp 0.4s 0.2s ease both; }
+
+  .btn-primary {
+    background: ${C.accent}; color: white; border: none; border-radius: 10px;
+    padding: 11px 24px; cursor: pointer; font-size: 14px; font-weight: 600;
+    transition: all 0.2s; letter-spacing: 0.2px;
+  }
   .btn-primary:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 20px ${C.accentGlow}; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn-ghost { background: transparent; color: ${C.mutedLight}; border: 1px solid ${C.border}; border-radius: 10px; padding: 10px 20px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+  .btn-ghost {
+    background: transparent; color: ${C.mutedLight}; border: 1px solid ${C.border};
+    border-radius: 10px; padding: 10px 20px; cursor: pointer; font-size: 14px;
+    transition: all 0.2s;
+  }
   .btn-ghost:hover { border-color: ${C.borderLight}; color: ${C.text}; background: ${C.card}; }
-  .card { background: ${C.card}; border: 1px solid ${C.border}; border-radius: 16px; overflow: hidden; }
+  
+  .card {
+    background: ${C.card}; border: 1px solid ${C.border}; border-radius: 16px; overflow: hidden;
+  }
   .card-hover:hover { border-color: ${C.borderLight}; background: ${C.cardHover}; }
-  .input-field { background: ${C.surface}; border: 1px solid ${C.border}; border-radius: 10px; padding: 10px 14px; color: ${C.text}; font-size: 14px; width: 100%; transition: border-color 0.2s; }
+  
+  .input-field {
+    background: ${C.surface}; border: 1px solid ${C.border}; border-radius: 10px;
+    padding: 10px 14px; color: ${C.text}; font-size: 14px; width: 100%;
+    transition: border-color 0.2s;
+  }
   .input-field:focus { border-color: ${C.accent}; }
   .input-field::placeholder { color: ${C.muted}; }
-  .tab-btn { padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap; }
+
+  .tab-btn {
+    padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap;
+  }
   .tab-btn.active { background: ${C.accent}; color: white; }
-  .tab-btn:not(.active) { background: transparent; color: ${C.muted}; }
+  .tag-btn:not(.active) { background: transparent; color: ${C.muted}; }
   .tab-btn:not(.active):hover { color: ${C.text}; background: ${C.border}; }
 `;
 
-const FINNHUB_KEY = import.meta.env.VITE_FINNHUB_API_KEY || "";
-
-const MARKET_TICKERS = [
-  { ticker: "ASML",  name: "ASML Holding",     sector: "Semiconductors" },
-  { ticker: "NVDA",  name: "Nvidia",            sector: "AI Chips" },
-  { ticker: "MSFT",  name: "Microsoft",         sector: "Cloud/AI" },
-  { ticker: "GOOGL", name: "Alphabet",          sector: "Cloud/AI" },
-  { ticker: "ASMI",  name: "ASM International", sector: "Semiconductors" },
-  { ticker: "ADYEN", name: "Adyen",             sector: "Fintech" },
-  { ticker: "MU",    name: "Micron Technology", sector: "Memory" },
-  { ticker: "AMD",   name: "AMD",               sector: "AI Chips" },
-  { ticker: "AAPL",  name: "Apple",             sector: "Tech" },
-  { ticker: "TSLA",  name: "Tesla",             sector: "EV/Energy" },
-  { ticker: "META",  name: "Meta",              sector: "Social/AI" },
-];
+// ─── MOCK DATA ────────────────────────────────────────────────────────────────
+const MOCK_STOCKS = {
+  ASML:  { price: 742.30, change: 2.14,  name: "ASML Holding",      sector: "Semiconductors" },
+  NVDA:  { price: 1087.5, change: 3.41,  name: "Nvidia",            sector: "AI Chips" },
+  MSFT:  { price: 421.80, change: -0.62, name: "Microsoft",         sector: "Cloud/AI" },
+  GOOGL: { price: 178.40, change: 1.23,  name: "Alphabet",          sector: "Cloud/AI" },
+  ASMI:  { price: 618.90, change: -1.08, name: "ASM International", sector: "Semiconductors" },
+  ADYEN: { price: 1324.0, change: 4.71,  name: "Adyen",             sector: "Fintech" },
+  NOVO:  { price: 512.20, change: 0.83,  name: "Novo Nordisk",      sector: "Healthcare" },
+  MU:    { price: 134.60, change: 5.24,  name: "Micron Technology", sector: "Memory" },
+  AMD:   { price: 246.30, change: 2.67,  name: "AMD",               sector: "AI Chips" },
+  ABB:   { price: 48.70,  change: -0.34, name: "ABB",               sector: "Automation" },
+};
 
 const PLANS = [
-  { id: "free",  name: "Free",  price: 0,  color: C.muted,  features: ["5 positions", "Market overview", "Basic alerts (3)"] },
-  { id: "pro",   name: "Pro",   price: 19, color: C.accent, features: ["Unlimited positions", "Live prices", "Unlimited alerts", "AI Chat & Analysis"] },
-  { id: "elite", name: "Elite", price: 49, color: C.gold,   features: ["Everything in Pro", "Priority support", "API access", "Weekly report"] },
+  { id: "free",  name: "Free",    price: 0,  color: C.muted,  features: ["5 positions", "Market overview", "Basic alerts (3)"] },
+  { id: "pro",   name: "Pro",     price: 19, color: C.accent, features: ["Unlimited positions", "Live prices", "Unlimited alerts", "Email notifications", "Portfolio analysis"] },
+  { id: "elite", name: "Elite",   price: 49, color: C.gold,   features: ["Everything in Pro", "AI market analysis", "Weekly email report", "Priority support", "API access"] },
 ];
 
-// ─── TYPES ────────────────────────────────────────────────────────────────────
-interface PriceData { price: number; change: number; name: string; sector: string; }
-interface ChatMessage { role: "user" | "assistant"; content: string; }
-
 // ─── HOOKS ───────────────────────────────────────────────────────────────────
-async function fetchQuote(ticker: string): Promise<{ price: number; change: number } | null> {
-  if (!FINNHUB_KEY) return null;
-  try {
-    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (!d.c || d.c === 0) return null;
-    return { price: d.c, change: d.dp ?? 0 };
-  } catch { return null; }
+function useStorage(key, initial) {
+  const [val, setVal] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; } catch { return initial; }
+  });
+  const set = useCallback(v => {
+    const next = typeof v === "function" ? v(val) : v;
+    setVal(next);
+    try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+  }, [key, val]);
+  return [val, set];
 }
 
-function useLivePrices(tickers: string[]) {
-  const seed: Record<string, PriceData> = {};
-  MARKET_TICKERS.forEach(m => { seed[m.ticker] = { price: 0, change: 0, name: m.name, sector: m.sector }; });
-  const [prices, setPrices] = useState<Record<string, PriceData>>(seed);
-  const [lastUpdated, setLastUpdated] = useState("");
-
-  const refresh = useCallback(async (symbols: string[]) => {
-    if (!FINNHUB_KEY) {
+function useLivePrices() {
+  const [prices, setPrices] = useState(MOCK_STOCKS);
+  useEffect(() => {
+    const id = setInterval(() => {
       setPrices(prev => {
         const next = { ...prev };
-        symbols.forEach(k => {
-          if (next[k]) next[k] = { ...next[k], price: Math.max(1, +(next[k].price + (Math.random() - 0.488) * 1.8).toFixed(2)) };
+        Object.keys(next).forEach(k => {
+          const delta = (Math.random() - 0.488) * 1.8;
+          next[k] = { ...next[k], price: Math.max(1, +(next[k].price + delta).toFixed(2)), change: +(next[k].change + (Math.random() - 0.5) * 0.08).toFixed(2) };
         });
         return next;
       });
-      return;
-    }
-    const results = await Promise.all(symbols.map(async ticker => {
-      const meta = MARKET_TICKERS.find(m => m.ticker === ticker);
-      const q = await fetchQuote(ticker);
-      return { ticker, meta, q };
-    }));
-    setPrices(prev => {
-      const next = { ...prev };
-      results.forEach(({ ticker, meta, q }) => {
-        if (q) next[ticker] = { price: q.price, change: q.change, name: meta?.name ?? ticker, sector: meta?.sector ?? "—" };
-        else if (!next[ticker]) next[ticker] = { price: 0, change: 0, name: meta?.name ?? ticker, sector: meta?.sector ?? "—" };
-      });
-      return next;
-    });
-    setLastUpdated(new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }));
-  }, []);
-
-  useEffect(() => { if (tickers.length > 0) refresh(tickers); }, []);
-  useEffect(() => {
-    const id = setInterval(() => refresh(tickers), FINNHUB_KEY ? 30_000 : 3000);
+    }, 2000);
     return () => clearInterval(id);
-  }, [tickers.join(",")]);
-
-  return { prices, lastUpdated, refresh: () => refresh(tickers) };
+  }, []);
+  return prices;
 }
 
 // ─── SMALL COMPONENTS ─────────────────────────────────────────────────────────
-function Badge({ children, color = C.accent }: { children: React.ReactNode; color?: string }) {
+function Badge({ children, color = C.accent }) {
   return <span style={{ background: color + "22", color, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, letterSpacing: 0.5 }}>{children}</span>;
 }
-function Dot({ color, ping }: { color: string; ping?: boolean }) {
-  return <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8 }}>
-    {ping && <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: color, animation: "ping 1.5s ease infinite" }} />}
-    <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "block" }} />
-  </span>;
+
+function Dot({ color, ping }) {
+  return (
+    <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8 }}>
+      {ping && <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: color, animation: "ping 1.5s ease infinite" }} />}
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "block" }} />
+    </span>
+  );
 }
+
 function Spinner() {
-  return <div style={{ width: 18, height: 18, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />;
+  return <div style={{ width: 18, height: 18, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />;
 }
-function StatCard({ label, value, sub, accent, delay = 0 }: { label: string; value: string; sub?: string; accent?: string; delay?: number }) {
-  return <div className={`card anim-fadeUp-${delay}`} style={{ padding: "20px 24px", flex: 1, minWidth: 150 }}>
-    <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1, fontWeight: 500 }}>{label}</div>
-    <div className="mono syne" style={{ fontSize: 26, fontWeight: 700, color: accent || C.text, lineHeight: 1 }}>{value}</div>
-    {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{sub}</div>}
-  </div>;
+
+function StatCard({ label, value, sub, accent, delay = 0 }) {
+  return (
+    <div className={`card anim-fadeUp-${delay}`} style={{ padding: "20px 24px", flex: 1, minWidth: 150 }}>
+      <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1, fontWeight: 500 }}>{label}</div>
+      <div className="mono syne" style={{ fontSize: 26, fontWeight: 700, color: accent || C.white, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
 }
 
 // ─── TICKER BANNER ────────────────────────────────────────────────────────────
-function TickerBanner({ prices }: { prices: Record<string, PriceData> }) {
-  const items = Object.entries(prices).filter(([, d]) => d.price > 0);
-  if (items.length === 0) return null;
+function TickerBanner({ prices }) {
+  const items = Object.entries(prices);
   const doubled = [...items, ...items];
-  return <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, overflow: "hidden", height: 36, display: "flex", alignItems: "center" }}>
-    <div style={{ display: "flex", animation: "ticker 40s linear infinite", whiteSpace: "nowrap" }}>
-      {doubled.map(([ticker, d], i) => (
-        <span key={i} className="mono" style={{ fontSize: 12, padding: "0 24px", color: d.change >= 0 ? C.green : C.red, display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: C.mutedLight, fontWeight: 500 }}>{ticker}</span>
-          €{d.price.toFixed(2)} <span>{d.change >= 0 ? "▲" : "▼"}{Math.abs(d.change).toFixed(2)}%</span>
-        </span>
-      ))}
+  return (
+    <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, overflow: "hidden", height: 36, display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", animation: "ticker 30s linear infinite", whiteSpace: "nowrap" }}>
+        {doubled.map(([ticker, d], i) => (
+          <span key={i} className="mono" style={{ fontSize: 12, padding: "0 24px", color: d.change >= 0 ? C.green : C.red, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: C.mutedLight, fontWeight: 500 }}>{ticker}</span>
+            €{d.price.toFixed(2)}
+            <span>{d.change >= 0 ? "▲" : "▼"}{Math.abs(d.change).toFixed(2)}%</span>
+          </span>
+        ))}
+      </div>
     </div>
-  </div>;
+  );
 }
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
-function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
-  return <div style={{ minHeight: "100vh" }}>
-    <div style={{ padding: "80px 40px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 600, background: `radial-gradient(circle, ${C.accent}0a 0%, transparent 70%)`, pointerEvents: "none" }} />
-      <div className="anim-fadeUp" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 100, padding: "6px 16px", fontSize: 12, color: C.accent, marginBottom: 28, fontWeight: 500 }}>
-        <Dot color={C.green} ping /> Live prices · Worldwide
-      </div>
-      <h1 className="syne anim-fadeUp-1" style={{ fontSize: "clamp(40px, 6vw, 72px)", fontWeight: 800, lineHeight: 1.05, marginBottom: 20, letterSpacing: -2 }}>
-        Invest smarter.<br /><span style={{ color: C.accent }}>Earn more.</span>
-      </h1>
-      <p className="anim-fadeUp-2" style={{ fontSize: 18, color: C.mutedLight, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.6 }}>
-        Portfolio tracker with live prices, smart alerts and AI analysis. Built for serious investors worldwide.
-      </p>
-      <div className="anim-fadeUp-3" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <button className="btn-primary" onClick={onSignup} style={{ padding: "14px 32px", fontSize: 15 }}>Start for free →</button>
-        <button className="btn-ghost" onClick={onLogin}>Log in</button>
-      </div>
-      <p className="anim-fadeUp-4" style={{ fontSize: 12, color: C.muted, marginTop: 16 }}>No credit card required · Free plan always available</p>
-    </div>
-    <div style={{ padding: "0 40px 60px", maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        {[
-          { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
-          { icon: "🔔", title: "Smart Alerts", desc: "Set price alerts and get notified instantly when your target price is reached." },
-          { icon: "🤖", title: "AI Market Analysis", desc: "AI analysis of your portfolio with opportunities and risks per position." },
-          { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE, LSE — everything on one dashboard. Multiple currencies." },
-        ].map((f, i) => (
-          <div key={i} className="card card-hover" style={{ padding: 24, transition: "all 0.2s" }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
-            <div className="syne" style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{f.title}</div>
-            <div style={{ fontSize: 14, color: C.mutedLight, lineHeight: 1.6 }}>{f.desc}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-    <div style={{ padding: "0 40px 80px", maxWidth: 900, margin: "0 auto" }}>
-      <h2 className="syne" style={{ textAlign: "center", fontSize: 36, fontWeight: 800, marginBottom: 8, letterSpacing: -1 }}>Simple pricing</h2>
-      <p style={{ textAlign: "center", color: C.muted, fontSize: 15, marginBottom: 40 }}>Start free, upgrade when you're ready.</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-        {PLANS.map(plan => (
-          <div key={plan.id} className="card" style={{ padding: "28px 24px", border: `1px solid ${plan.id === "pro" ? C.accent + "66" : C.border}`, position: "relative" }}>
-            {plan.id === "pro" && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: C.accent, color: "white", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 100 }}>MOST POPULAR</div>}
-            <div style={{ color: plan.color, fontSize: 13, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{plan.name}</div>
-            <div className="mono" style={{ fontSize: 36, fontWeight: 700, marginBottom: 4 }}>
-              {plan.price === 0 ? "Free" : `€${plan.price}`}
-              {plan.price > 0 && <span style={{ fontSize: 14, color: C.muted, fontFamily: "Instrument Sans" }}>/mo</span>}
-            </div>
-            <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
-            {plan.features.map((f, j) => <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.mutedLight, marginBottom: 8 }}><span style={{ color: plan.color }}>✓</span> {f}</div>)}
-            <button className={plan.id === "pro" ? "btn-primary" : "btn-ghost"} onClick={onSignup}
-              style={{ width: "100%", marginTop: 20, background: plan.id === "elite" ? C.goldDim : undefined, color: plan.id === "elite" ? C.gold : undefined, borderColor: plan.id === "elite" ? C.gold + "44" : undefined }}>
-              {plan.price === 0 ? "Get started free" : "Try 14 days free"}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>;
-}
+const LANDING_COPY = {
+  nl: {
+    badge: "Live koersen · AEX · Nasdaq · NYSE",
+    h1a: "Jouw portfolio.",
+    h1b: "Live. Slim. Gratis.",
+    sub: "Portfolio tracker met live koersen, dividendtracker, AI-analyse en koersalarmen. Importeer vanuit DEGIRO of Lynx in één klik.",
+    badges: ["✅ DEGIRO import", "✅ Lynx import", "✅ AI-analyse", "✅ Dividendtracker"],
+    cta: "Gratis starten →",
+    login: "Inloggen",
+    nocards: "Geen creditcard nodig · Altijd een gratis plan beschikbaar",
+    features: [
+      { icon: "📊", title: "Portfolio Tracking", desc: "Volg al je posities op één plek. Live P&L, rendement en verdeling per sector." },
+      { icon: "💰", title: "Dividendtracker", desc: "Zie automatisch je jaarlijks, kwartaal en maandelijks dividendinkomen per aandeel." },
+      { icon: "🔔", title: "Koersalarmen", desc: "Stel alarmen in en word meteen gewaarschuwd als je doelkoers bereikt wordt." },
+      { icon: "🤖", title: "AI Portfolio Analyse", desc: "Vraag de AI alles over jouw portfolio — hij kent je exacte posities en live koersen." },
+      { icon: "📁", title: "DEGIRO & Lynx Import", desc: "Importeer je hele portfolio in één klik via CSV. Getest en bewezen." },
+      { icon: "🌍", title: "Wereldwijde Markten", desc: "AEX, Nasdaq, NYSE en meer — alles op één dashboard. Live koersen." },
+    ],
+    stats: [
+      { value: "100%", label: "Gratis te starten" },
+      { value: "30s", label: "Portfolio importeren" },
+      { value: "3x", label: "Gratis AI-analyses" },
+      { value: "24/7", label: "Live koersen" },
+    ],
+    pricingTitle: "Eenvoudige prijzen",
+    pricingSub: "Start gratis, upgrade wanneer je er klaar voor bent.",
+    pricingNote: "Geen creditcard nodig voor het gratis plan · Opzeggen wanneer je wilt",
+    planCta: (price: number) => price === 0 ? "Gratis starten" : "Starten met Pro →",
+    popular: "MEEST POPULAIR",
+    perMonth: "/maand",
+    free: "Gratis",
+  },
+  en: {
+    badge: "Live prices · AEX · Nasdaq · NYSE",
+    h1a: "Your portfolio.",
+    h1b: "Live. Smart. Free.",
+    sub: "Portfolio tracker with live prices, dividend tracking, AI analysis and price alerts. Import from DEGIRO or Lynx in one click.",
+    badges: ["✅ DEGIRO import", "✅ Lynx import", "✅ AI analysis", "✅ Dividend tracker"],
+    cta: "Start for free →",
+    login: "Log in",
+    nocards: "No credit card required · Free plan always available",
+    features: [
+      { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
+      { icon: "💰", title: "Dividend Tracker", desc: "See your annual, quarterly and monthly dividend income per stock automatically." },
+      { icon: "🔔", title: "Price Alerts", desc: "Set alerts and get notified instantly when your target price is reached." },
+      { icon: "🤖", title: "AI Portfolio Analysis", desc: "Ask the AI anything about your portfolio — it knows your exact positions and live prices." },
+      { icon: "📁", title: "DEGIRO & Lynx Import", desc: "Import your entire portfolio in one click via CSV. Tested and proven." },
+      { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE and more — everything on one dashboard. Live prices." },
+    ],
+    stats: [
+      { value: "100%", label: "Free to start" },
+      { value: "30s", label: "Portfolio import" },
+      { value: "3x", label: "Free AI analyses" },
+      { value: "24/7", label: "Live prices" },
+    ],
+    pricingTitle: "Simple pricing",
+    pricingSub: "Start free, upgrade when you're ready.",
+    pricingNote: "No credit card required for the free plan · Cancel anytime",
+    planCta: (price: number) => price === 0 ? "Get started free" : "Start with Pro →",
+    popular: "MOST POPULAR",
+    perMonth: "/mo",
+    free: "Free",
+  },
+};
 
-// ─── AUTH FORM ────────────────────────────────────────────────────────────────
-function AuthForm({ mode, onAuth, onSwitch }: { mode: "login" | "signup"; onAuth: (u: Profile) => void; onSwitch: () => void }) {
+function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+  const lang = navigator.language?.startsWith("nl") ? "nl" : "en";
+  const t = LANDING_COPY[lang];
+
+  return (
+    <div style={{ minHeight: "100vh" }}>
+      {/* HERO */}
+      <div style={{ padding: "80px 40px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 600, background: `radial-gradient(circle, ${C.accent}0a 0%, transparent 70%)`, pointerEvents: "none" }} />
+        <div className="anim-fadeUp" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 100, padding: "6px 16px", fontSize: 12, color: C.accent, marginBottom: 28, fontWeight: 500 }}>
+          <Dot color={C.green} ping /> {t.badge}
+        </div>
+        <h1 className="syne anim-fadeUp-1" style={{ fontSize: "clamp(36px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.05, marginBottom: 20, letterSpacing: -2 }}>
+          {t.h1a}<br /><span style={{ color: C.accent }}>{t.h1b}</span>
+        </h1>
+        <p className="anim-fadeUp-2" style={{ fontSize: 18, color: C.mutedLight, maxWidth: 560, margin: "0 auto 16px", lineHeight: 1.6 }}>
+          {t.sub}
+        </p>
+        <div className="anim-fadeUp-2" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 32 }}>
+          {t.badges.map((b, i) => (
+            <span key={i} style={{ fontSize: 12, color: C.green, background: C.greenDim, padding: "4px 12px", borderRadius: 100, fontWeight: 500 }}>{b}</span>
+          ))}
+        </div>
+        <div className="anim-fadeUp-3" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <button className="btn-primary" onClick={onSignup} style={{ padding: "14px 32px", fontSize: 15 }}>{t.cta}</button>
+          <button className="btn-ghost" onClick={onLogin}>{t.login}</button>
+        </div>
+        <p className="anim-fadeUp-4" style={{ fontSize: 12, color: C.muted, marginTop: 16 }}>{t.nocards}</p>
+      </div>
+
+      {/* FEATURES */}
+      <div style={{ padding: "0 40px 60px", maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          {t.features.map((f, i) => (
+            <div key={i} className="card card-hover" style={{ padding: 24, transition: "all 0.2s" }}>
+              <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
+              <div className="syne" style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{f.title}</div>
+              <div style={{ fontSize: 14, color: C.mutedLight, lineHeight: 1.6 }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* SOCIAL PROOF */}
+      <div style={{ padding: "0 40px 60px", maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ display: "flex", gap: 40, justifyContent: "center", flexWrap: "wrap" }}>
+          {t.stats.map((s, i) => (
+            <div key={i} style={{ textAlign: "center" }}>
+              <div className="syne mono" style={{ fontSize: 36, fontWeight: 800, color: C.accent }}>{s.value}</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* PRICING */}
+      <div style={{ padding: "0 40px 80px", maxWidth: 900, margin: "0 auto" }}>
+        <h2 className="syne" style={{ textAlign: "center", fontSize: 36, fontWeight: 800, marginBottom: 8, letterSpacing: -1 }}>{t.pricingTitle}</h2>
+        <p style={{ textAlign: "center", color: C.muted, fontSize: 15, marginBottom: 40 }}>{t.pricingSub}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          {PLANS.map(plan => (
+            <div key={plan.id} className="card" style={{ padding: "28px 24px", border: `1px solid ${plan.id === "pro" ? C.accent + "66" : C.border}`, position: "relative" }}>
+              {plan.id === "pro" && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: C.accent, color: "white", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 100 }}>{t.popular}</div>}
+              <div style={{ color: plan.color, fontSize: 13, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{plan.name}</div>
+              <div className="mono" style={{ fontSize: 36, fontWeight: 700, marginBottom: 4 }}>
+                {plan.price === 0 ? t.free : `€${plan.price}`}
+                {plan.price > 0 && <span style={{ fontSize: 14, color: C.muted, fontFamily: "Instrument Sans" }}>{t.perMonth}</span>}
+              </div>
+              <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
+              {plan.features.map((f, j) => <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.mutedLight, marginBottom: 8 }}><span style={{ color: plan.color }}>✓</span> {f}</div>)}
+              <button className={plan.id === "pro" ? "btn-primary" : "btn-ghost"} onClick={onSignup}
+                style={{ width: "100%", marginTop: 20, background: plan.id === "elite" ? C.goldDim : undefined, color: plan.id === "elite" ? C.gold : undefined, borderColor: plan.id === "elite" ? C.gold + "44" : undefined }}>
+                {t.planCta(plan.price)}
+              </button>
+            </div>
+          ))}
+        </div>
+        <p style={{ textAlign: "center", fontSize: 13, color: C.muted, marginTop: 24 }}>{t.pricingNote}</p>
+      </div>
+    </div>
+  );
+}
+// ─── AUTH FORMS ───────────────────────────────────────────────────────────────
+function AuthForm({ mode, onAuth, onSwitch }) {
   const [email, setEmail] = useState("");
   const [pass, setPass]   = useState("");
   const [name, setName]   = useState("");
-  const [plan, setPlan]   = useState<Profile["plan"]>("free");
+  const [plan, setPlan]   = useState("free");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!email || !pass) { setError("Please fill in all fields."); return; }
-    if (mode === "signup" && !name) { setError("Please enter your name."); return; }
     setLoading(true); setError("");
-    try {
-      if (mode === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({ email, password: pass, options: { data: { name } } });
-        if (signUpError) { setError(signUpError.message); setLoading(false); return; }
-        // Update profile with name and plan
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from("profiles").update({ name, plan }).eq("id", user.id);
-          onAuth({ id: user.id, email, name, plan, created_at: new Date().toISOString() });
-        }
-      } else {
-        const { error: signInError, data } = await supabase.auth.signInWithPassword({ email, password: pass });
-        if (signInError) { setError(signInError.message); setLoading(false); return; }
-        if (data.user) {
-          const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
-          onAuth(profile || { id: data.user.id, email, name: email.split("@")[0], plan: "free", created_at: new Date().toISOString() });
-        }
-      }
-    } catch { setError("Something went wrong. Please try again."); }
+    await new Promise(r => setTimeout(r, 800));
     setLoading(false);
-  };
-
-  return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-    <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 420, padding: 36 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>◈</div>
-        <span className="syne" style={{ fontSize: 17, fontWeight: 800 }}>StockPulse</span>
-      </div>
-      <div className="syne" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{mode === "login" ? "Welcome back" : "Create your account"}</div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 28 }}>{mode === "login" ? "Log in to your StockPulse account" : "Start free, upgrade whenever"}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {mode === "signup" && <input className="input-field" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />}
-        <input className="input-field" type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
-        <input className="input-field" type="password" placeholder="Password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-        {mode === "signup" && (
-          <div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Choose a plan:</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {PLANS.map(p => (
-                <button key={p.id} onClick={() => setPlan(p.id as Profile["plan"])}
-                  style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `1px solid ${plan === p.id ? p.color : C.border}`, background: plan === p.id ? p.color + "22" : "transparent", color: plan === p.id ? p.color : C.muted, cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.2s" }}>
-                  {p.name}<br /><span className="mono" style={{ fontSize: 11 }}>{p.price === 0 ? "Free" : `€${p.price}/mo`}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
-        <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
-          {loading ? <><Spinner /> {mode === "login" ? "Logging in..." : "Creating account..."}</> : mode === "login" ? "Log in →" : "Create account →"}
-        </button>
-        <div style={{ textAlign: "center", fontSize: 13, color: C.muted }}>
-          {mode === "login" ? "No account yet? " : "Already have an account? "}
-          <span style={{ color: C.accent, cursor: "pointer" }} onClick={onSwitch}>{mode === "login" ? "Sign up free" : "Log in"}</span>
-        </div>
-      </div>
-    </div>
-  </div>;
-}
-
-// ─── PIE CHART ────────────────────────────────────────────────────────────────
-const PIE_COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6","#a855f7","#eab308"];
-
-function PieChart({ holdings, prices }: { holdings: Holding[]; prices: Record<string, PriceData> }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"stock" | "sector">("stock");
-
-  if (holdings.length === 0) return (
-    <div style={{ textAlign: "center", padding: "40px 20px", color: C.muted, fontSize: 14 }}>Add positions to see allocation chart</div>
-  );
-
-  // Calculate values
-  const items = holdings.map((h, i) => {
-    const price = prices[h.ticker]?.price ?? h.avg_buy;
-    const value = price * h.shares;
-    const sector = (prices[h.ticker] as any)?.sector || "Other";
-    return { ticker: h.ticker, name: h.name, value, sector, color: PIE_COLORS[i % PIE_COLORS.length] };
-  }).filter(x => x.value > 0);
-
-  const total = items.reduce((s, x) => s + x.value, 0);
-  if (total === 0) return null;
-
-  // Group by sector if needed
-  const displayItems = activeTab === "stock" ? items : Object.values(
-    items.reduce((acc: Record<string, any>, x, i) => {
-      if (!acc[x.sector]) acc[x.sector] = { ticker: x.sector, name: x.sector, value: 0, sector: x.sector, color: PIE_COLORS[Object.keys(acc).length % PIE_COLORS.length] };
-      acc[x.sector].value += x.value;
-      return acc;
-    }, {})
-  );
-
-  // Draw SVG pie
-  const cx = 110, cy = 110, r = 90, innerR = 50;
-  let angle = -Math.PI / 2;
-  const slices = displayItems.map((item, i) => {
-    const pct = item.value / total;
-    const startAngle = angle;
-    angle += pct * 2 * Math.PI;
-    const endAngle = angle;
-    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
-    const ix1 = cx + innerR * Math.cos(startAngle), iy1 = cy + innerR * Math.sin(startAngle);
-    const ix2 = cx + innerR * Math.cos(endAngle),   iy2 = cy + innerR * Math.sin(endAngle);
-    const large = pct > 0.5 ? 1 : 0;
-    const path = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`;
-    return { ...item, path, pct, i };
-  });
-
-  const hoveredItem = hovered !== null ? slices[hovered] : null;
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button className={`tab-btn ${activeTab === "stock" ? "active" : ""}`} onClick={() => setActiveTab("stock")} style={{ fontSize: 12, padding: "5px 12px" }}>By Stock</button>
-        <button className={`tab-btn ${activeTab === "sector" ? "active" : ""}`} onClick={() => setActiveTab("sector")} style={{ fontSize: 12, padding: "5px 12px" }}>By Sector</button>
-      </div>
-      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <svg width={220} height={220} viewBox="0 0 220 220">
-            {slices.map((s, i) => (
-              <path key={i} d={s.path} fill={s.color}
-                opacity={hovered === null || hovered === i ? 1 : 0.4}
-                style={{ cursor: "pointer", transition: "opacity 0.2s", transform: hovered === i ? `scale(1.04)` : "scale(1)", transformOrigin: `${cx}px ${cy}px` }}
-                onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
-            ))}
-            <text x={cx} y={cy - 6} textAnchor="middle" fill={C.muted} style={{ fontSize: 12, fontFamily: "Instrument Sans" }}>
-              {hoveredItem ? hoveredItem.ticker : "Total"}
-            </text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fill={C.text} style={{ fontSize: 13, fontFamily: "JetBrains Mono", fontWeight: 700 }}>
-              {hoveredItem ? `${(hoveredItem.pct * 100).toFixed(1)}%` : `€${(total/1000).toFixed(1)}k`}
-            </text>
-          </svg>
-        </div>
-        <div style={{ width: 260 }}>
-          {slices.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, opacity: hovered === null || hovered === i ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", padding: "4px 8px", borderRadius: 8, background: hovered === i ? C.accentDim : "transparent" }}
-              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.text, width: 48 }}>{s.ticker}</div>
-              <div style={{ fontSize: 11, color: C.muted, width: 80 }}>€{s.value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: s.color, fontFamily: "JetBrains Mono", width: 44, textAlign: "right" }}>{(s.pct * 100).toFixed(1)}%</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── STOCK SEARCH ────────────────────────────────────────────────────────────
-interface StockResult { symbol: string; description: string; type: string; }
-
-function StockSearch({ value, onChange, onSelect, prices }: {
-  value: string;
-  onChange: (v: string) => void;
-  onSelect: (ticker: string, name: string, price: number) => void;
-  prices: Record<string, PriceData>;
-}) {
-  const [results, setResults] = useState<StockResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [show, setShow] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const searchStock = async (query: string) => {
-    if (query.length < 1) { setResults([]); setShow(false); return; }
-    setLoading(true);
-    try {
-      // First check our known tickers
-      const known = MARKET_TICKERS.filter(m =>
-        m.ticker.startsWith(query.toUpperCase()) || m.name.toLowerCase().startsWith(query.toLowerCase())
-      ).map(m => ({ symbol: m.ticker, description: m.name, type: "Common Stock" }));
-
-      // Then search Finnhub for worldwide stocks
-      const finnhubKey = import.meta.env.VITE_FINNHUB_API_KEY;
-      let finnhubResults: StockResult[] = [];
-      if (finnhubKey && query.length >= 2) {
-        try {
-          const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${finnhubKey}`);
-          const d = await r.json();
-          finnhubResults = (d.result || [])
-            .filter((x: any) => x.type === "Common Stock" || x.type === "EQS")
-            .slice(0, 8)
-            .map((x: any) => ({ symbol: x.symbol, description: x.description, type: x.type }));
-        } catch {}
-      }
-
-      // Merge — known first, then Finnhub, deduplicate
-      const seen = new Set(known.map(x => x.symbol));
-      const merged = [...known, ...finnhubResults.filter(x => !seen.has(x.symbol))].slice(0, 10);
-      setResults(merged);
-      setShow(merged.length > 0);
-    } catch {}
-    setLoading(false);
-  };
-
-  const handleChange = (v: string) => {
-    onChange(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => searchStock(v), 300);
-  };
-
-  const handleSelect = async (result: StockResult) => {
-    const ticker = result.symbol;
-    const name = result.description;
-    // Try to get current price
-    let price = prices[ticker]?.price ?? 0;
-    if (!price && import.meta.env.VITE_FINNHUB_API_KEY) {
-      try {
-        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${import.meta.env.VITE_FINNHUB_API_KEY}`);
-        const d = await r.json();
-        price = d.c ?? 0;
-      } catch {}
-    }
-    onSelect(ticker, name, price);
-    setShow(false);
-    setResults([]);
+    onAuth({ email, name: name || email.split("@")[0], plan });
   };
 
   return (
-    <div ref={wrapperRef} style={{ position: "relative" }}>
-      <div style={{ position: "relative" }}>
-        <input className="input-field" placeholder="Search stock (e.g. ASML, Apple, Nvidia...)"
-          value={value} onChange={e => handleChange(e.target.value)}
-          onFocus={() => value.length > 0 && results.length > 0 && setShow(true)}
-          style={{ paddingRight: 32 }} />
-        {loading && <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)" }}><Spinner /></div>}
-      </div>
-      {show && results.length > 0 && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, zIndex: 100, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", marginTop: 4 }}>
-          {results.map((r, i) => {
-            const curPrice = prices[r.symbol]?.price ?? 0;
-            const change = prices[r.symbol]?.change ?? 0;
-            return (
-              <div key={i} onClick={() => handleSelect(r)}
-                style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: i < results.length - 1 ? `1px solid ${C.border}` : "none", transition: "background 0.15s" }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)}
-                onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: C.accentDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.accent, fontFamily: "JetBrains Mono" }}>
-                    {r.symbol.slice(0, 4)}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{r.symbol}</div>
-                    <div style={{ fontSize: 11, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</div>
-                  </div>
-                </div>
-                {curPrice > 0 && (
-                  <div style={{ textAlign: "right" }}>
-                    <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.text }}>€{curPrice.toFixed(2)}</div>
-                    <div className="mono" style={{ fontSize: 11, color: change >= 0 ? C.green : C.red }}>{change >= 0 ? "+" : ""}{change.toFixed(2)}%</div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 420, padding: 36 }}>
+        <div className="syne" style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
+          {mode === "login" ? "Welcome back" : "Create your account"}
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─── CSV IMPORTER ─────────────────────────────────────────────────────────────
-interface ParsedPosition { ticker: string; shares: number; avgBuy: number; name: string; }
-
-function parseCSV(text: string): ParsedPosition[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-
-  // Detect IBKR/Lynx format: "Positions,Header,Symbol,Quantity..."
-  const isIBKR = lines.some(l => l.startsWith("Positions,Header") || l.startsWith("Open Positions"));
-  if (isIBKR) {
-    const headerLine = lines.find(l => l.startsWith("Positions,Header") || l.startsWith("Open Positions,Header"));
-    if (!headerLine) return [];
-    const headers = headerLine.split(",").map(h => h.trim().toLowerCase());
-    const symIdx  = headers.findIndex(h => h === "symbol");
-    const qtyIdx  = headers.findIndex(h => h === "quantity" || h === "qty");
-    const costIdx = headers.findIndex(h => h.includes("cost price") || h.includes("avg price") || h.includes("average price"));
-    if (symIdx < 0 || qtyIdx < 0 || costIdx < 0) return [];
-    return lines
-      .filter(l => l.startsWith("Positions,Data") || l.startsWith("Open Positions,Data"))
-      .map(l => {
-        const cols = l.split(",");
-        const ticker = cols[symIdx]?.trim().toUpperCase();
-        const shares = parseFloat(cols[qtyIdx]?.trim().replace(/[^0-9.-]/g, ""));
-        const avgBuy = parseFloat(cols[costIdx]?.trim().replace(/[^0-9.-]/g, ""));
-        if (!ticker || isNaN(shares) || shares <= 0 || isNaN(avgBuy) || avgBuy <= 0) return null;
-        return { ticker, shares, avgBuy, name: ticker };
-      })
-      .filter(Boolean) as ParsedPosition[];
-  }
-
-  // Detect DEGIRO format: has "Product" and "ISIN" columns
-  const headerLine = lines[0];
-  const headers = headerLine.split(/[,;]/).map(h => h.trim().replace(/"/g, "").toLowerCase());
-  const isDEGIRO = headers.some(h => h.includes("product")) && headers.some(h => h.includes("isin"));
-
-  if (isDEGIRO) {
-    const symIdx  = headers.findIndex(h => h.includes("symbol") || h.includes("ticker"));
-    const prodIdx = headers.findIndex(h => h.includes("product"));
-    const qtyIdx  = headers.findIndex(h => h.includes("aantal") || h.includes("quantity") || h.includes("shares"));
-    const costIdx = headers.findIndex(h => h.includes("gemiddelde") || h.includes("avg") || h.includes("koers") || h.includes("price"));
-    if (qtyIdx < 0) return [];
-    return lines.slice(1)
-      .filter(l => l.trim())
-      .map(l => {
-        const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g, ""));
-        const ticker = symIdx >= 0 ? cols[symIdx]?.toUpperCase() : cols[prodIdx]?.toUpperCase() || "";
-        const shares = parseFloat(cols[qtyIdx]?.replace(",", ".") || "0");
-        const avgBuy = costIdx >= 0 ? parseFloat(cols[costIdx]?.replace(",", ".") || "0") : 0;
-        if (!ticker || isNaN(shares) || shares <= 0) return null;
-        return { ticker, shares, avgBuy: isNaN(avgBuy) ? 0 : avgBuy, name: cols[prodIdx] || ticker };
-      })
-      .filter(Boolean) as ParsedPosition[];
-  }
-
-  // Universal format: auto-detect ticker/shares/price columns
-  const tickerIdx = headers.findIndex(h => ["ticker", "symbol", "stock", "aandeel", "isin"].some(k => h.includes(k)));
-  const sharesIdx = headers.findIndex(h => ["shares", "quantity", "qty", "aantal", "hoeveelheid", "amount"].some(k => h.includes(k)));
-  const priceIdx  = headers.findIndex(h => ["price", "avg", "cost", "prijs", "koers", "buy"].some(k => h.includes(k)));
-
-  if (tickerIdx < 0 || sharesIdx < 0) return [];
-
-  return lines.slice(1)
-    .filter(l => l.trim())
-    .map(l => {
-      const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g, ""));
-      const ticker = cols[tickerIdx]?.toUpperCase();
-      const shares = parseFloat(cols[sharesIdx]?.replace(",", ".") || "0");
-      const avgBuy = priceIdx >= 0 ? parseFloat(cols[priceIdx]?.replace(",", ".") || "0") : 0;
-      if (!ticker || isNaN(shares) || shares <= 0) return null;
-      return { ticker, shares, avgBuy: isNaN(avgBuy) ? 0 : avgBuy, name: ticker };
-    })
-    .filter(Boolean) as ParsedPosition[];
-}
-
-function CSVImporter({ user, onImported, show, setShow, onUpgradeClick }: { user: Profile; onImported: (holdings: any[]) => void; show: boolean; setShow: (v: boolean) => void; onUpgradeClick: () => void }) {
-  const [preview, setPreview] = useState<ParsedPosition[]>([]);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [error, setError]     = useState("");
-  const [importing, setImporting] = useState(false);
-  const [imported, setImported]   = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(""); setPreview([]); setImported(false); setShowUpgrade(false);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const positions = parseCSV(text);
-      if (positions.length === 0) {
-        setError("Could not parse this CSV. Make sure it has ticker, shares and price columns, or use a Lynx/DEGIRO export.");
-      } else {
-        setPreview(positions);
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const doImport = async () => {
-    setImporting(true);
-    const limit = user.plan === "free" ? 5 : 999;
-    const { count } = await supabase.from("holdings").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-    const remaining = limit - (count || 0);
-    if (remaining <= 0) {
-      setError(`⚠️ You have reached the ${limit} position limit on the Free plan.`); setShowUpgrade(true);
-      setImporting(false);
-      return;
-    }
-    const toImport = preview.slice(0, remaining);
-    const rows = toImport.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
-    const { data, error: err } = await supabase.from("holdings").insert(rows).select();
-    if (err) { setError("Import failed. Please try again."); setImporting(false); return; }
-    onImported(data || []);
-    setImporting(false);
-    if (toImport.length < preview.length) {
-      // Show upgrade prompt instead of success
-      setPreview([]);
-      setError(`✅ Imported ${toImport.length} of ${preview.length} positions. ${preview.length - toImport.length} skipped — Free plan is limited to ${limit}.`); setShowUpgrade(true);
-    } else {
-      setImported(true);
-      setPreview([]);
-      setTimeout(() => { setShow(false); setImported(false); }, 2000);
-    }
-  };
-
-  if (!show) return null;
-
-  return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#000000cc", zIndex: 9999, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 24px 40px" }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, width: "100%", maxWidth: 720, padding: 32, boxShadow: "0 25px 60px rgba(0,0,0,0.8)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div className="syne" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>📁 Import Portfolio CSV</div>
-          <button onClick={() => { setShow(false); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>✕</button>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 28 }}>
+          {mode === "login" ? "Log in to your StockPulse account" : "Start free, upgrade whenever you want"}
         </div>
 
-        {/* Supported formats */}
-        <div style={{ background: C.accentDim, border: `1px solid ${C.accent}33`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.mutedLight }}>
-          ✅ Supported: <strong style={{ color: C.text }}>Lynx/IBKR</strong> Activity Statement · <strong style={{ color: C.text }}>DEGIRO</strong> Portfolio Export · <strong style={{ color: C.text }}>Universal CSV</strong> (ticker, shares, price)
-        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {mode === "signup" && (
+            <input className="input-field" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
+          )}
+          <input className="input-field" placeholder="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="input-field" placeholder="Password" type="password" value={pass} onChange={e => setPass(e.target.value)} />
 
-        {!preview.length && !imported && (
-          <div>
-            <div onClick={() => fileRef.current?.click()}
-              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "32px 20px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", marginBottom: 12, background: C.surface }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 4 }}>Click to select your CSV file</div>
-              <div style={{ fontSize: 11, color: C.muted }}>or drag and drop here</div>
-            </div>
-            <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
-            {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "10px 14px", borderRadius: 8 }}>{error}</div>}
-          </div>
-        )}
-
-        {preview.length > 0 && (
-          <div>
-            <div style={{ fontSize: 13, color: C.green, marginBottom: 12 }}>✅ Found {preview.length} positions — review before importing:</div>
-            <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 16 }}>
-              <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px", padding: "8px 14px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-                <span>TICKER</span><span style={{ textAlign: "right" }}>SHARES</span><span style={{ textAlign: "right" }}>AVG PRICE</span>
-              </div>
-              {preview.map((p, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600 }}>{p.ticker}</span>
-                  <span className="mono" style={{ textAlign: "right", color: C.mutedLight }}>{p.shares}</span>
-                  <span className="mono" style={{ textAlign: "right", color: p.avgBuy > 0 ? C.text : C.muted }}>{p.avgBuy > 0 ? `€${p.avgBuy.toFixed(2)}` : "—"}</span>
-                </div>
-              ))}
-            </div>
-            {error && (
-              <div style={{ fontSize: 13, padding: "12px 14px", borderRadius: 8, marginBottom: 12,
-                background: showUpgrade ? C.goldDim : error.startsWith("✅") ? C.greenDim : C.redDim,
-                border: `1px solid ${showUpgrade ? C.gold + "44" : error.startsWith("✅") ? C.green + "44" : C.red + "44"}` }}>
-                <div style={{ color: showUpgrade ? C.gold : error.startsWith("✅") ? C.green : C.red, marginBottom: showUpgrade ? 10 : 0 }}>{error}</div>
-                {showUpgrade && (
-                  <button className="btn-primary" onClick={() => { setShow(false); onUpgradeClick(); }}
-                    style={{ fontSize: 13, padding: "8px 16px" }}>
-                    ⚡ Upgrade to Pro →
+          {mode === "signup" && (
+            <div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: 500 }}>Choose your plan</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {PLANS.map(p => (
+                  <button key={p.id} onClick={() => setPlan(p.id)}
+                    style={{ flex: 1, padding: "8px 4px", border: `1px solid ${plan === p.id ? p.color : C.border}`, borderRadius: 8, background: plan === p.id ? p.color + "22" : "transparent", color: plan === p.id ? p.color : C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
+                    {p.name}
                   </button>
-                )}
+                ))}
               </div>
-            )}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn-primary" onClick={doImport} disabled={importing} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                {importing ? <><Spinner /> Importing...</> : `✅ Import ${preview.length} positions`}
-              </button>
-              <button className="btn-ghost" onClick={() => { setPreview([]); setError(""); if (fileRef.current) fileRef.current.value = ""; }}>Cancel</button>
             </div>
-          </div>
-        )}
+          )}
 
-        {imported && (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: C.green }}>Portfolio imported successfully!</div>
-          </div>
-        )}
+          {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+
+          <button className="btn-primary" onClick={handleSubmit} style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px" }}>
+            {loading ? <Spinner /> : (mode === "login" ? "Log in" : "Create account")}
+          </button>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: C.muted }}>
+          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+          <button onClick={onSwitch} style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+            {mode === "login" ? "Sign up" : "Log in"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── PORTFOLIO TAB ────────────────────────────────────────────────────────────
-function PortfolioTab({ prices, user, onRefresh, lastUpdated }: { prices: Record<string, PriceData>; user: Profile; onRefresh: () => void; lastUpdated: string }) {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
+function PortfolioTab({ prices, user }) {
+  const [holdings, setHoldings] = useStorage(`holdings_${user.email}`, [
+    { ticker: "ASML", shares: 5,  avgBuy: 680 },
+    { ticker: "NVDA", shares: 10, avgBuy: 900 },
+    { ticker: "MSFT", shares: 20, avgBuy: 380 },
+    { ticker: "ASMI", shares: 8,  avgBuy: 550 },
+  ]);
+  const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ ticker: "", shares: "", avgBuy: "" });
-  const [stockName, setStockName] = useState("");
-  const [tickerSearch, setTickerSearch] = useState("");
-  const [search, setSearch] = useState("");
-  const [addError, setAddError] = useState("");
-  const [loadingData, setLoadingData] = useState(true);
-  const [showImporter, setShowImporter] = useState(false);
-  const [showImporterModal, setShowImporterModal] = useState(false);
+  const limit = user.plan === "free" ? 5 : 9999;
 
-  useEffect(() => {
-    supabase.from("holdings").select("*").eq("user_id", user.id).order("added_at", { ascending: true })
-      .then(({ data }) => { setHoldings(data || []); setLoadingData(false); });
-  }, [user.id]);
+  const totalValue = holdings.reduce((s, h) => s + (prices[h.ticker]?.price || h.avgBuy) * h.shares, 0);
+  const totalCost  = holdings.reduce((s, h) => s + h.avgBuy * h.shares, 0);
+  const totalPnL   = totalValue - totalCost;
+  const totalPct   = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+  const dayPnL     = holdings.reduce((s, h) => s + (prices[h.ticker]?.price || h.avgBuy) * h.shares * (prices[h.ticker]?.change || 0) / 100, 0);
 
-  const limit = user.plan === "free" ? 5 : 999;
-
-  const addHolding = async () => {
-    setAddError("");
-    const ticker = form.ticker.trim().toUpperCase();
-    if (!ticker || !form.shares || !form.avgBuy) { setAddError("Fill in all fields."); return; }
-    if (holdings.length >= limit) { setAddError(`⚠️ You have reached the ${limit} position limit on the Free plan. Upgrade to Pro for unlimited positions!`); return; }
-    const shares = parseFloat(form.shares);
-    const avgBuy = parseFloat(form.avgBuy);
-    if (isNaN(shares) || shares <= 0) { setAddError("Invalid number of shares."); return; }
-    if (isNaN(avgBuy) || avgBuy <= 0) { setAddError("Invalid average buy price."); return; }
-    const meta = MARKET_TICKERS.find(m => m.ticker === ticker);
-    const name = stockName || meta?.name || ticker;
-    const { data, error } = await supabase.from("holdings").insert({ user_id: user.id, ticker, name, shares, avg_buy: avgBuy }).select().single();
-    if (error) { setAddError("Could not save. Please try again."); return; }
-    setHoldings(prev => [...prev, data]);
-    setForm({ ticker: "", shares: "", avgBuy: "" });
-    setTickerSearch("");
-    setStockName("");
+  const addHolding = () => {
+    const t = form.ticker.toUpperCase().trim();
+    if (!t || !form.shares || !form.avgBuy) return;
+    if (holdings.length >= limit) { alert(`Free plan: max ${limit} positions. Upgrade to Pro for unlimited.`); return; }
+    setHoldings(p => [...p, { ticker: t, shares: +form.shares, avgBuy: +form.avgBuy }]);
+    setForm({ ticker: "", shares: "", avgBuy: "" }); setShowAdd(false);
   };
 
-  const removeHolding = async (id: string) => {
-    await supabase.from("holdings").delete().eq("id", id);
-    setHoldings(prev => prev.filter(h => h.id !== id));
-  };
-
-  const filtered = holdings.filter(h => h.ticker.includes(search.toUpperCase()) || h.name?.toLowerCase().includes(search.toLowerCase()));
-  let totalValue = 0, totalCost = 0;
-  holdings.forEach(h => { const p = prices[h.ticker]?.price ?? h.avg_buy; totalValue += h.shares * p; totalCost += h.shares * h.avg_buy; });
-  const totalPL = totalValue - totalCost;
-  const totalPct = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
-
-  return <div>
-    <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-      <StatCard label="Portfolio Value" value={`€${totalValue.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={0} />
-      <StatCard label="Total Cost" value={`€${totalCost.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={1} />
-      <StatCard label="Total P&L" value={`${totalPL >= 0 ? "+" : ""}€${totalPL.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} accent={totalPL >= 0 ? C.green : C.red} sub={`${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%`} delay={2} />
-      <StatCard label="Positions" value={`${holdings.length}/${user.plan === "free" ? limit : "∞"}`} delay={3} />
-    </div>
-    {holdings.length > 0 && (
-      <div className="card anim-fadeUp" style={{ marginBottom: 20 }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🥧 Portfolio Allocation</span>
-        </div>
-        <div style={{ padding: 20 }}>
-          <PieChart holdings={holdings} prices={prices} />
-        </div>
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <StatCard label="Portfolio Value"  value={`€${totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}    sub="Live prices"               delay={1} />
+        <StatCard label="Total P&L"       value={`${totalPnL >= 0 ? "+" : ""}€${Math.abs(totalPnL).toFixed(0)}`}             sub={`${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}% return`} accent={totalPnL >= 0 ? C.green : C.red} delay={2} />
+        <StatCard label="Day P&L"          value={`${dayPnL >= 0 ? "+" : ""}€${Math.abs(dayPnL).toFixed(0)}`}                 sub="Today"                    accent={dayPnL >= 0 ? C.green : C.red} delay={3} />
+        <StatCard label="Positions"         value={`${holdings.length}/${user.plan === "free" ? limit : "∞"}`}                  sub={user.plan === "free" ? "Free plan" : "Pro plan"}   accent={C.gold} delay={4} />
       </div>
-    )}
-    <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
-      <div>
-        <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Add Position</span><button onClick={() => setShowImporterModal(true)} className="btn-ghost" style={{ fontSize: 13, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 }}>📁 Import CSV</button></div>
-          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-            <StockSearch
-              value={tickerSearch}
-              onChange={v => { setTickerSearch(v); setForm(p => ({ ...p, ticker: v.toUpperCase() })); }}
-              onSelect={(ticker, name, price) => {
-                setForm(p => ({ ...p, ticker, avgBuy: price > 0 ? price.toFixed(2) : p.avgBuy }));
-                setTickerSearch(ticker);
-                setStockName(name);
-                setAddError("");
-              }}
-              prices={prices}
-            />
-            {stockName && form.ticker && (
-              <div style={{ fontSize: 12, color: C.green, background: C.greenDim, padding: "6px 10px", borderRadius: 7, display: "flex", alignItems: "center", gap: 6 }}>
-                ✓ {stockName} selected
+
+      <div className="card anim-fadeUp">
+        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="syne" style={{ fontWeight: 700, fontSize: 15 }}>My Positions</span>
+          <button className="btn-primary" onClick={() => setShowAdd(!showAdd)} style={{ padding: "7px 16px", fontSize: 13 }}>+ Position</button>
+        </div>
+
+        {showAdd && (
+          <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}`, background: C.accentDim, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            {[["Ticker", "ticker", "text"], ["Shares", "shares", "number"], ["Buy price €", "avgBuy", "number"]].map(([label, key, type]) => (
+              <div key={key} style={{ flex: 1, minWidth: 130 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 500 }}>{label}</div>
+                <input className="input-field" type={type} placeholder={label} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
               </div>
-            )}
-            <input className="input-field" type="number" placeholder="Number of shares" value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
-            <input className="input-field" type="number" placeholder="Average buy price (€)" value={form.avgBuy} onChange={e => setForm(p => ({ ...p, avgBuy: e.target.value }))} />
-            {addError && <div style={{ fontSize: 12, color: C.red, background: C.redDim, padding: "8px 10px", borderRadius: 7 }}>{addError}</div>}
-            <button className="btn-primary" onClick={addHolding}>+ Add to portfolio</button>
+            ))}
+            <button className="btn-primary" onClick={addHolding} style={{ padding: "10px 20px", flexShrink: 0 }}>Save</button>
           </div>
+        )}
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: C.surface }}>
+                {["Stock", "Sector", "Price", "Day%", "Shares", "Value", "P&L", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "11px 20px", textAlign: i > 1 ? "right" : "left", fontSize: 11, color: C.muted, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {holdings.map((h, i) => {
+                const p   = prices[h.ticker] || { price: h.avgBuy, change: 0, name: h.ticker, sector: "—" };
+                const val = p.price * h.shares;
+                const pnl = (p.price - h.avgBuy) * h.shares;
+                const pct = ((p.price - h.avgBuy) / h.avgBuy) * 100;
+                return (
+                  <tr key={i} style={{ borderTop: `1px solid ${C.border}`, transition: "background 0.15s", cursor: "default" }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <td style={{ padding: "14px 20px" }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{h.ticker}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{p.name}</div>
+                    </td>
+                    <td style={{ padding: "14px 20px" }}><Badge>{p.sector}</Badge></td>
+                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 14 }}>€{p.price.toFixed(2)}</td>
+                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", color: p.change >= 0 ? C.green : C.red, fontSize: 13 }}>
+                      {p.change >= 0 ? "▲" : "▼"} {Math.abs(p.change).toFixed(2)}%
+                    </td>
+                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 13 }}>{h.shares}</td>
+                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 14 }}>€{val.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}</td>
+                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", color: pnl >= 0 ? C.green : C.red, fontSize: 13 }}>
+                      <div>{pnl >= 0 ? "+" : ""}€{Math.abs(pnl).toFixed(0)}</div>
+                      <div style={{ fontSize: 11 }}>{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%</div>
+                    </td>
+                    <td style={{ padding: "14px 12px" }}>
+                      <button onClick={() => setHoldings(p => p.filter((_, j) => j !== i))}
+                        style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 15, padding: "4px 8px", borderRadius: 6, transition: "all 0.2s" }}
+                        onMouseEnter={e => { e.target.color = C.red; e.target.style.color = C.red; }}
+                        onMouseLeave={e => { e.target.style.color = C.muted; }}>✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        {lastUpdated && <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.muted, padding: "0 4px", marginBottom: 8 }}>
-          <Dot color={C.green} ping /> Prices updated at {lastUpdated}
-          <span style={{ marginLeft: "auto", cursor: "pointer", color: C.accent }} onClick={onRefresh}>↻ Refresh</span>
-        </div>}
-        {!FINNHUB_KEY && <div style={{ fontSize: 11, color: C.gold, background: C.goldDim, padding: "8px 12px", borderRadius: 8 }}>⚠️ Add VITE_FINNHUB_API_KEY for real prices.</div>}
-      </div>
-      <div className="card anim-fadeUp-1">
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Holdings</span>
-          <input className="input-field" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 180, padding: "6px 10px", fontSize: 13 }} />
-        </div>
-        {loadingData ? <div style={{ padding: 32, textAlign: "center" }}><Spinner /></div> :
-          filtered.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: C.muted, fontSize: 14 }}>{holdings.length === 0 ? "Add your first position →" : "No matches found."}</div> :
-          <div>
-            <div className="mono" style={{ display: "grid", gridTemplateColumns: "80px 1fr 100px 100px 100px 80px 36px", padding: "8px 20px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-              <span>TICKER</span><span>NAME</span><span style={{ textAlign: "right" }}>SHARES</span><span style={{ textAlign: "right" }}>BUY</span><span style={{ textAlign: "right" }}>CURRENT</span><span style={{ textAlign: "right" }}>P&L %</span><span />
-            </div>
-            {filtered.map(h => {
-              const cur = prices[h.ticker]?.price ?? h.avg_buy;
-              const pl = ((cur - h.avg_buy) / h.avg_buy) * 100;
-              const plAbs = (cur - h.avg_buy) * h.shares;
-              return <div key={h.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 100px 100px 100px 80px 36px", padding: "14px 20px", borderBottom: `1px solid ${C.border}`, alignItems: "center", transition: "background 0.2s" }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>{h.ticker}</span>
-                <div><div style={{ fontSize: 13 }}>{h.name}</div><div style={{ fontSize: 11, color: C.muted }}>€{(cur * h.shares).toFixed(2)} total · {plAbs >= 0 ? "+" : ""}€{plAbs.toFixed(2)}</div></div>
-                <span className="mono" style={{ textAlign: "right", fontSize: 13 }}>{h.shares}</span>
-                <span className="mono" style={{ textAlign: "right", fontSize: 13, color: C.muted }}>€{h.avg_buy.toFixed(2)}</span>
-                <span className="mono" style={{ textAlign: "right", fontSize: 13 }}>{cur > 0 ? `€${cur.toFixed(2)}` : "—"}</span>
-                <span className="mono" style={{ textAlign: "right", fontSize: 13, color: pl >= 0 ? C.green : C.red, fontWeight: 600 }}>{pl >= 0 ? "+" : ""}{pl.toFixed(2)}%</span>
-                <button onClick={() => removeHolding(h.id)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, padding: 4 }}>✕</button>
-              </div>;
-            })}
-          </div>
-        }
       </div>
     </div>
-    {showImporterModal && <CSVImporter user={user} onImported={(newH) => { setHoldings(prev => [...prev, ...newH]); }} show={showImporterModal} setShow={setShowImporterModal} onUpgradeClick={() => { setShowImporterModal(false); /* navigate to settings */ window.dispatchEvent(new CustomEvent("goto-settings")); }} />}
-  </div>;
+  );
 }
 
 // ─── MARKET TAB ───────────────────────────────────────────────────────────────
-function MarketTab({ prices, lastUpdated, onRefresh }: { prices: Record<string, PriceData>; lastUpdated: string; onRefresh: () => void }) {
-  const [filter, setFilter] = useState("All");
-  const sectors = ["All", ...Array.from(new Set(MARKET_TICKERS.map(m => m.sector)))];
-  const filtered = MARKET_TICKERS.filter(m => filter === "All" || m.sector === filter);
-  return <div>
-    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {sectors.map(s => <button key={s} className={`tab-btn ${filter === s ? "active" : ""}`} onClick={() => setFilter(s)}>{s}</button>)}
-      </div>
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.muted }}>
-        {lastUpdated && <><Dot color={C.green} ping /> {lastUpdated}</>}
-        <span style={{ cursor: "pointer", color: C.accent, marginLeft: 4 }} onClick={onRefresh}>↻</span>
+function MarketTab({ prices }) {
+  const sorted = Object.entries(prices).sort((a, b) => b[1].change - a[1].change);
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
+        {sorted.map(([ticker, d], i) => (
+          <div key={ticker} className="card card-hover" style={{ padding: "20px", transition: "all 0.2s", animationDelay: `${i * 0.03}s`, animation: "fadeUp 0.4s ease both", borderColor: d.change > 2 ? C.green + "44" : d.change < -1 ? C.red + "33" : C.border }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div className="syne" style={{ fontWeight: 700, fontSize: 15 }}>{ticker}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{d.name}</div>
+              </div>
+              <div style={{ background: d.change >= 0 ? C.greenDim : C.redDim, color: d.change >= 0 ? C.green : C.red, borderRadius: 7, padding: "4px 8px", fontSize: 12, fontFamily: "JetBrains Mono" }}>
+                {d.change >= 0 ? "▲" : "▼"} {Math.abs(d.change).toFixed(2)}%
+              </div>
+            </div>
+            <div className="mono" style={{ fontSize: 24, fontWeight: 700 }}>€{d.price.toFixed(2)}</div>
+            <div style={{ marginTop: 12 }}><Badge color={d.change >= 0 ? C.green : C.muted}>{d.sector}</Badge></div>
+            <div style={{ marginTop: 12, height: 3, background: C.border, borderRadius: 2 }}>
+              <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, 50 + d.change * 8))}%`, background: d.change >= 0 ? C.green : C.red, borderRadius: 2, transition: "width 1.5s ease" }} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
-    <div className="card anim-fadeUp">
-      <div className="mono" style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 100px 100px", padding: "10px 20px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-        <span>TICKER</span><span>NAME</span><span>SECTOR</span><span style={{ textAlign: "right" }}>PRICE</span><span style={{ textAlign: "right" }}>CHANGE</span>
-      </div>
-      {filtered.map((m, i) => {
-        const d = prices[m.ticker]; const hasPrice = d && d.price > 0;
-        return <div key={m.ticker} className={`anim-fadeUp-${Math.min(i, 4)}`} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 100px 100px", padding: "16px 20px", borderBottom: `1px solid ${C.border}`, alignItems: "center", transition: "background 0.2s" }}
-          onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
-          <span style={{ fontWeight: 700, fontSize: 13 }}>{m.ticker}</span>
-          <span style={{ fontSize: 13 }}>{m.name}</span>
-          <span><Badge color={C.accent}>{m.sector}</Badge></span>
-          <span className="mono" style={{ textAlign: "right", fontSize: 14, fontWeight: 600 }}>{hasPrice ? `€${d.price.toFixed(2)}` : <span style={{ color: C.muted }}>—</span>}</span>
-          <span className="mono" style={{ textAlign: "right", fontSize: 13, color: !hasPrice ? C.muted : d.change >= 0 ? C.green : C.red, fontWeight: 600 }}>
-            {hasPrice ? `${d.change >= 0 ? "▲" : "▼"} ${Math.abs(d.change).toFixed(2)}%` : "—"}
-          </span>
-        </div>;
-      })}
-    </div>
-  </div>;
+  );
 }
 
 // ─── ALERTS TAB ───────────────────────────────────────────────────────────────
-function AlertsTab({ prices, user }: { prices: Record<string, PriceData>; user: Profile }) {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [form, setForm] = useState({ ticker: "", type: "above" as "above" | "below", target: "" });
-  const [log, setLog] = useState<{ id: string; msg: string; price: string; time: string }[]>([]);
-  const [alertError, setAlertError] = useState("");
-  const limit = user.plan === "free" ? 3 : 999;
+function AlertsTab({ prices, user }) {
+  const [alerts, setAlerts]   = useStorage(`alerts_${user.email}`, [
+    { id: 1, ticker: "ASML", type: "above", target: 800,  active: true },
+    { id: 2, ticker: "NVDA", type: "below", target: 1000, active: true },
+    { id: 3, ticker: "MU",   type: "above", target: 130,  active: true },
+  ]);
+  const [log, setLog]         = useStorage(`alertlog_${user.email}`, []);
+  const [form, setForm]       = useState({ ticker: "", type: "above", target: "" });
+  const [emailSim, setEmailSim] = useState(null);
+  const limit = user.plan === "free" ? 3 : 9999;
 
   useEffect(() => {
-    supabase.from("alerts").select("*").eq("user_id", user.id).order("created_at", { ascending: true })
-      .then(({ data }) => setAlerts(data || []));
-  }, [user.id]);
-
-  useEffect(() => {
-    setAlerts(prev => {
-      let changed = false;
-      const next = prev.map(a => {
-        if (a.triggered) return a;
-        const cur = prices[a.ticker]?.price;
-        if (!cur) return a;
-        const triggered = a.type === "above" ? cur >= a.target : cur <= a.target;
-        if (triggered) {
-          changed = true;
-          supabase.from("alerts").update({ triggered: true }).eq("id", a.id);
-          const msg = `${a.ticker} ${a.type === "above" ? "rose above" : "dropped below"} €${a.target}`;
-          setLog(l => [{ id: Date.now().toString(), msg, price: cur.toFixed(2), time: new Date().toLocaleTimeString("nl-NL") }, ...l.slice(0, 49)]);
-          return { ...a, triggered: true };
-        }
-        return a;
-      });
-      return changed ? next : prev;
-    });
+    setAlerts(prev => prev.map(a => {
+      if (!a.active) return a;
+      const cur = prices[a.ticker]?.price;
+      if (!cur) return a;
+      const hit = a.type === "above" ? cur >= a.target : cur <= a.target;
+      if (hit && !a.triggered) {
+        const entry = { id: Date.now(), msg: `${a.ticker} ${a.type === "above" ? "above" : "below"} €${a.target}`, price: cur.toFixed(2), time: new Date().toLocaleTimeString("en-US") };
+        setLog(l => [entry, ...l.slice(0, 19)]);
+        if (user.plan !== "free") setEmailSim(entry);
+        return { ...a, triggered: true };
+      }
+      return a;
+    }));
   }, [prices]);
 
-  const addAlert = async () => {
-    const ticker = form.ticker.trim().toUpperCase();
-    if (!ticker || !form.target) return;
-    if (alerts.length >= limit) { setAlertError(`⚠️ Free plan is limited to ${limit} alerts. Upgrade to Pro for unlimited!`); return; }
-    const { data, error } = await supabase.from("alerts").insert({ user_id: user.id, ticker, type: form.type, target: parseFloat(form.target), triggered: false }).select().single();
-    if (error) return;
-    setAlerts(prev => [...prev, data]);
+  const addAlert = () => {
+    const t = form.ticker.toUpperCase().trim();
+    if (!t || !form.target) return;
+    if (alerts.length >= limit) { alert(`Free plan: max ${limit} alerts. Upgrade to Pro for unlimited.`); return; }
+    setAlerts(p => [...p, { id: Date.now(), ticker: t, type: form.type, target: +form.target, active: true, triggered: false }]);
     setForm({ ticker: "", type: "above", target: "" });
   };
 
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-    <div>
-      <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>New Price Alert</span>
-          <span style={{ marginLeft: 8, fontSize: 11, color: C.muted }}>{alerts.length}/{user.plan === "free" ? limit : "∞"} used</span>
-        </div>
-        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-          <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))} />
-          <select className="input-field" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value as "above" | "below" }))} style={{ background: C.surface }}>
-            <option value="above">Price rises above →</option>
-            <option value="below">Price drops below →</option>
-          </select>
-          <input className="input-field" type="number" placeholder="Target price (€)" value={form.target} onChange={e => setForm(p => ({ ...p, target: e.target.value }))} />
-          {alertError && (
-            <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, background: C.goldDim, border: `1px solid ${C.gold}44`, color: C.gold }}>
-              {alertError}
-              <button className="btn-primary" onClick={() => { setAlertError(""); window.dispatchEvent(new CustomEvent("goto-settings")); }}
-                style={{ fontSize: 11, padding: "4px 10px", marginLeft: 8 }}>⚡ Upgrade</button>
-            </div>
-          )}
-          <button className="btn-primary" onClick={() => { setAlertError(""); addAlert(); }}>🔔 Set alert</button>
-        </div>
-      </div>
-      <div className="card anim-fadeUp-1">
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Active Alerts</span></div>
-        {alerts.length === 0 && <div style={{ padding: 24, textAlign: "center", color: C.muted, fontSize: 13 }}>No alerts set.</div>}
-        {alerts.map(a => {
-          const cur = prices[a.ticker]?.price;
-          return <div key={a.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: a.triggered ? C.goldDim : "transparent" }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>{a.ticker}</span>
-                {a.triggered && <Badge color={C.gold}>TRIGGERED</Badge>}
-              </div>
-              <div className="mono" style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                {a.type === "above" ? "▲ above" : "▼ below"} €{a.target}
-                {cur && cur > 0 ? <span style={{ marginLeft: 8, color: C.mutedLight }}>· now €{cur.toFixed(2)}</span> : null}
-              </div>
-            </div>
-            <button onClick={async () => { await supabase.from("alerts").delete().eq("id", a.id); setAlerts(prev => prev.filter(x => x.id !== a.id)); }}
-              style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>✕</button>
-          </div>;
-        })}
-      </div>
-    </div>
-    <div className="card anim-fadeUp-1">
-      <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🔔 Notification Log</span></div>
-      {log.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: C.muted, fontSize: 13 }}>No alerts triggered yet.<br />Prices are being monitored live.</div> :
-        log.map(l => <div key={l.id} style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, animation: "fadeIn 0.3s ease" }}>
-          <div style={{ fontSize: 13 }}>🔔 {l.msg}</div>
-          <div className="mono" style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>€{l.price} · {l.time}</div>
-        </div>)}
-    </div>
-  </div>;
-}
-
-// ─── DIVIDENDS TAB ───────────────────────────────────────────────────────────
-// Well-known dividend yields (fallback if user hasn't set one)
-const KNOWN_YIELDS: Record<string, number> = {
-  ASML: 0.9, NVDA: 0.03, MSFT: 0.7, GOOGL: 0.5, AAPL: 0.5,
-  ADYEN: 0.0, ASMI: 0.7, MU: 0.4, AMD: 0.0, TSLA: 0.0, META: 0.4,
-  NOVO: 1.8, JNJ: 3.0, KO: 3.1, PG: 2.4, VZ: 6.5, T: 5.8,
-  SHELL: 4.2, UNILEVER: 3.8, ABN: 5.1, ING: 7.2, PHIA: 3.9,
-};
-
-function DividendsTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editYield, setEditYield] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.from("holdings").select("*").eq("user_id", user.id).order("added_at")
-      .then(({ data }) => { setHoldings(data || []); setLoading(false); });
-  }, [user.id]);
-
-  const saveYield = async (id: string) => {
-    const val = parseFloat(editYield);
-    if (isNaN(val) || val < 0) return;
-    await supabase.from("holdings").update({ dividend_yield: val }).eq("id", id);
-    setHoldings(prev => prev.map(h => h.id === id ? { ...h, dividend_yield: val } : h));
-    setEditing(null);
-  };
-
-  // Calculate dividends
-  const rows = holdings.map(h => {
-    const curPrice = prices[h.ticker]?.price ?? h.avg_buy;
-    const yld = h.dividend_yield > 0 ? h.dividend_yield : (KNOWN_YIELDS[h.ticker] || 0);
-    const annualPerShare = curPrice * (yld / 100);
-    const annualTotal = annualPerShare * h.shares;
-    const monthlyTotal = annualTotal / 12;
-    const quarterlyTotal = annualTotal / 4;
-    return { ...h, yld, annualPerShare, annualTotal, monthlyTotal, quarterlyTotal, curPrice };
-  });
-
-  const totalAnnual = rows.reduce((s, r) => s + r.annualTotal, 0);
-  const totalMonthly = totalAnnual / 12;
-  const topPayer = rows.length > 0 ? rows.reduce((a, b) => a.annualTotal > b.annualTotal ? a : b) : null;
-
-  return <div>
-    {/* Summary cards */}
-    <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-      <StatCard label="Annual Dividend Income" value={`€${totalAnnual.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} accent={C.green} delay={0} />
-      <StatCard label="Monthly Income" value={`€${totalMonthly.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={1} />
-      <StatCard label="Quarterly Income" value={`€${(totalAnnual / 4).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} delay={2} />
-      {topPayer && <StatCard label="Top Dividend Payer" value={topPayer.ticker} sub={`€${topPayer.annualTotal.toFixed(2)}/year`} accent={C.gold} delay={3} />}
-    </div>
-
-    <div className="card anim-fadeUp">
-      <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>💰 Dividend Overview</span>
-        <span style={{ fontSize: 12, color: C.muted }}>Click yield % to edit · Pre-filled with known yields</span>
-      </div>
-
-      {loading ? <div style={{ padding: 32, textAlign: "center" }}><Spinner /></div> :
-        rows.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: C.muted, fontSize: 14 }}>Add stocks to your portfolio first.</div> :
-        <div>
-          <div className="mono" style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "8px 20px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-            <span>TICKER</span><span>NAME</span><span style={{ textAlign: "right" }}>YIELD</span>
-            <span style={{ textAlign: "right" }}>ANNUAL</span><span style={{ textAlign: "right" }}>QUARTERLY</span><span style={{ textAlign: "right" }}>MONTHLY</span>
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div>
+        {/* New alert */}
+        <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
+          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>New Price Alert</span>
+            <span style={{ marginLeft: 8, fontSize: 11, color: C.muted }}>{alerts.length}/{user.plan === "free" ? limit : "∞"} used</span>
           </div>
-          {rows.map(h => (
-            <div key={h.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "14px 20px", borderBottom: `1px solid ${C.border}`, alignItems: "center", transition: "background 0.2s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{h.ticker}</span>
-              <div>
-                <div style={{ fontSize: 13 }}>{h.name}</div>
-                <div style={{ fontSize: 11, color: C.muted }}>{h.shares} shares · €{h.curPrice.toFixed(2)}/share</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                {editing === h.id ? (
-                  <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-end" }}>
-                    <input className="input-field" type="number" value={editYield} onChange={e => setEditYield(e.target.value)}
-                      style={{ width: 55, padding: "3px 6px", fontSize: 12 }} onKeyDown={e => e.key === "Enter" && saveYield(h.id)} autoFocus />
-                    <span style={{ fontSize: 11, color: C.muted }}>%</span>
-                    <button onClick={() => saveYield(h.id)} style={{ background: C.green, border: "none", borderRadius: 5, padding: "3px 7px", color: "white", cursor: "pointer", fontSize: 11 }}>✓</button>
+          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+            <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))} />
+            <select className="input-field" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={{ background: C.surface }}>
+              <option value="above">Price rises above →</option>
+              <option value="below">Price drops below →</option>
+            </select>
+            <input className="input-field" type="number" placeholder="Target price in €" value={form.target} onChange={e => setForm(p => ({ ...p, target: e.target.value }))} />
+            <button className="btn-primary" onClick={addAlert}>🔔 Set alert</button>
+          </div>
+        </div>
+
+        {/* Alert list */}
+        <div className="card anim-fadeUp-1">
+          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Active Alerts</span>
+          </div>
+          {alerts.length === 0 && <div style={{ padding: 24, textAlign: "center", color: C.muted, fontSize: 13 }}>No alerts set.</div>}
+          {alerts.map(a => {
+            const cur = prices[a.ticker]?.price;
+            return (
+              <div key={a.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: a.triggered ? C.goldDim : "transparent", transition: "background 0.3s" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{a.ticker}</span>
+                    {a.triggered && <Badge color={C.gold}>TRIGGERED</Badge>}
                   </div>
-                ) : (
-                  <span onClick={() => { setEditing(h.id); setEditYield(h.yld.toString()); }}
-                    style={{ fontSize: 13, color: h.yld > 0 ? C.green : C.muted, cursor: "pointer", fontWeight: 600, textDecoration: "underline dotted" }}
-                    title="Click to edit">
-                    {h.yld > 0 ? `${h.yld.toFixed(1)}%` : "set %"}
-                  </span>
-                )}
+                  <div className="mono" style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+                    {a.type === "above" ? "▲ above" : "▼ below"} €{a.target}
+                    {cur && <span style={{ marginLeft: 8, color: C.mutedLight }}>· now €{cur.toFixed(2)}</span>}
+                  </div>
+                </div>
+                <button onClick={() => setAlerts(p => p.filter(x => x.id !== a.id))}
+                  style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>✕</button>
               </div>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: h.annualTotal > 0 ? C.green : C.muted }}>
-                {h.annualTotal > 0 ? `€${h.annualTotal.toFixed(2)}` : "—"}
-              </span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: C.mutedLight }}>
-                {h.quarterlyTotal > 0 ? `€${h.quarterlyTotal.toFixed(2)}` : "—"}
-              </span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13, color: C.mutedLight }}>
-                {h.monthlyTotal > 0 ? `€${h.monthlyTotal.toFixed(2)}` : "—"}
-              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Log + email sim */}
+      <div>
+        {emailSim && (
+          <div className="card anim-fadeUp" style={{ marginBottom: 16, border: `1px solid ${C.green}44`, background: C.greenDim }}>
+            <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.green}33` }}>
+              <span style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>📧 Email notification sent</span>
+            </div>
+            <div style={{ padding: 16, fontSize: 13, color: C.mutedLight, lineHeight: 1.7 }}>
+              <strong style={{ color: C.text }}>To:</strong> {user.email}<br />
+              <strong style={{ color: C.text }}>Subject:</strong> 🔔 StockPulse Alert — {emailSim.msg}<br />
+              <strong style={{ color: C.text }}>Price:</strong> €{emailSim.price} · {emailSim.time}
+            </div>
+            <div style={{ padding: "10px 20px" }}><button className="btn-ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setEmailSim(null)}>Close</button></div>
+          </div>
+        )}
+        <div className="card anim-fadeUp-1">
+          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🔔 Notification Log</span>
+          </div>
+          {log.length === 0 ? (
+            <div style={{ padding: 32, textAlign: "center", color: C.muted, fontSize: 13 }}>
+              No alerts triggered yet.<br />Prices are being monitored live.
+            </div>
+          ) : log.map(l => (
+            <div key={l.id} style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, animation: "fadeIn 0.3s ease" }}>
+              <div style={{ fontSize: 13, color: C.text }}>🔔 {l.msg}</div>
+              <div className="mono" style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>€{l.price} · {l.time}</div>
             </div>
           ))}
-          {/* Total row */}
-          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 100px 100px 100px", padding: "14px 20px", background: C.accentDim, alignItems: "center" }}>
-            <span />
-            <span className="syne" style={{ fontWeight: 700, fontSize: 13 }}>Total</span>
-            <span />
-            <span className="mono" style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: C.green }}>€{totalAnnual.toFixed(2)}</span>
-            <span className="mono" style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.green }}>€{(totalAnnual / 4).toFixed(2)}</span>
-            <span className="mono" style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.green }}>€{totalMonthly.toFixed(2)}</span>
-          </div>
         </div>
-      }
-    </div>
-
-    {/* Info box */}
-    <div style={{ marginTop: 16, padding: "12px 16px", background: C.goldDim, border: `1px solid ${C.gold}44`, borderRadius: 10, fontSize: 12, color: C.mutedLight }}>
-      💡 <strong style={{ color: C.gold }}>Tip:</strong> Yields are pre-filled for well-known stocks. Click the yield % to set your own exact dividend yield. Annual dividend = current price × yield × shares.
-    </div>
-  </div>;
-}
-
-// ─── AI USAGE TRACKING ───────────────────────────────────────────────────────
-const AI_FREE_LIMIT = 3;
-
-function getAIUsage(userId: string, type: "analyze" | "chat"): number {
-  try { return parseInt(localStorage.getItem(`ai_${type}_${userId}`) || "0"); } catch { return 0; }
-}
-
-function incrementAIUsage(userId: string, type: "analyze" | "chat"): number {
-  try {
-    const current = getAIUsage(userId, type);
-    const next = current + 1;
-    localStorage.setItem(`ai_${type}_${userId}`, String(next));
-    return next;
-  } catch { return 0; }
-}
-
-function AIUpgradePrompt({ onClose }: { onClose?: () => void }) {
-  return (
-    <div style={{ textAlign: "center", padding: "32px 24px" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
-      <div className="syne" style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>You have used your 3 free AI analyses</div>
-      <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-        Upgrade to Pro or Elite for unlimited AI analysis and chat — just €19/month.
       </div>
-      <button className="btn-primary" onClick={() => { window.dispatchEvent(new CustomEvent("goto-settings")); if (onClose) onClose(); }}
-        style={{ fontSize: 15, padding: "12px 28px" }}>
-        ⚡ Upgrade to Pro →
-      </button>
-      <div style={{ fontSize: 12, color: C.muted, marginTop: 12 }}>Cancel anytime · 14 day free trial</div>
     </div>
   );
 }
 
 // ─── AI ANALYSE TAB ───────────────────────────────────────────────────────────
-function AIAnalyseTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
+function AIAnalyseTab({ user, prices }) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult]   = useState<string | null>(null);
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-
-  useEffect(() => {
-    supabase.from("holdings").select("*").eq("user_id", user.id).then(({ data }) => setHoldings(data || []));
-  }, [user.id]);
-
-  const buildSummary = () => holdings.length === 0 ? "No positions added yet." :
-    holdings.map(h => { const p = prices[h.ticker] ?? { price: h.avg_buy, change: 0 }; const pct = ((p.price - h.avg_buy) / h.avg_buy * 100).toFixed(1); return `${h.ticker} (${h.name}): ${h.shares} shares, avg buy €${h.avg_buy}, current €${p.price.toFixed(2)}, P&L: ${pct}%`; }).join("\n");
-
-  const [usage, setUsage] = useState(() => getAIUsage(user.id, "analyze"));
-  const canUseAI = user.plan !== "free" || usage < AI_FREE_LIMIT;
+  const [result, setResult]   = useState(null);
+  const [holdings] = useStorage(`holdings_${user.email}`, []);
 
   const runAnalysis = async () => {
-    if (user.plan === "free" && usage >= AI_FREE_LIMIT) { return; }
+    if (user.plan === "free") { alert("AI Analyse is beschikbaar in Pro en Elite. Upgrade je plan."); return; }
     setLoading(true); setResult(null);
     try {
-      const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolioSummary: buildSummary(), plan: user.plan }) });
-      const data = await resp.json();
-      if (user.plan === "free") { const next = incrementAIUsage(user.id, "analyze"); setUsage(next); }
-      setResult(data.result || data.error || "Could not load analysis.");
-    } catch { setResult("❌ Could not connect to AI. Please try again."); }
-    setLoading(false);
-  };
+      const portfolioSummary = holdings.map(h => {
+        const p = prices[h.ticker] || { price: h.avgBuy, change: 0, name: h.ticker };
+        const pct = ((p.price - h.avgBuy) / h.avgBuy * 100).toFixed(1);
+        return `${h.ticker} (${p.name}): ${h.shares} aandelen, aankoopprijs €${h.avgBuy}, huidige koers €${p.price.toFixed(2)}, P&L: ${pct}%`;
+      }).join("\n");
 
-  return <div style={{ maxWidth: 720 }}>
-    <div className="card anim-fadeUp">
-      <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>🤖 AI Portfolio Analysis</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-            Powered by Claude · {user.plan === "free" ? `${AI_FREE_LIMIT - usage} free ${AI_FREE_LIMIT - usage === 1 ? "analysis" : "analyses"} remaining` : `${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan · Unlimited`}
-          </div>
-        </div>
-        {canUseAI && <button className="btn-primary" onClick={runAnalysis} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {loading ? <><Spinner /> Analyzing...</> : "▶ Analyze now"}
-        </button>}
-      </div>
-      <div style={{ padding: "16px 24px" }}>
-        {!canUseAI && <AIUpgradePrompt />}
-        {canUseAI && !result && !loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
-          <div style={{ fontSize: 14 }}>Click "Analyze now" for an AI analysis of your portfolio.</div>
-          {user.plan === "free" && <div style={{ fontSize: 13, color: C.gold, marginTop: 8 }}>🎁 {AI_FREE_LIMIT - usage} free {AI_FREE_LIMIT - usage === 1 ? "analysis" : "analyses"} remaining.</div>}
-        </div>}
-        {canUseAI && loading && <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}><div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Spinner /></div><div style={{ fontSize: 14 }}>AI is analyzing your portfolio...</div></div>}
-        {canUseAI && result && <div style={{ fontSize: 14, lineHeight: 1.85, color: C.text, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{result}</div>}
-      </div>
-    </div>
-  </div>;
-}
-
-// ─── AI CHAT TAB ──────────────────────────────────────────────────────────────
-const SUGGESTED_QUESTIONS = ["Should I buy more ASML right now?", "Is my portfolio too risky?", "Which position has the best outlook?", "Am I diversified enough?", "What would you sell first?", "How is my portfolio performing vs the market?"];
-
-function AIChatTab({ user, prices }: { user: Profile; prices: Record<string, PriceData> }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const bottomRef               = useRef<HTMLDivElement>(null);
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-
-  useEffect(() => {
-    supabase.from("holdings").select("*").eq("user_id", user.id).then(({ data }) => setHoldings(data || []));
-  }, [user.id]);
-
-  const portfolioSummary = holdings.length === 0 ? "No positions added yet." :
-    holdings.map(h => { const p = prices[h.ticker] ?? { price: h.avg_buy, change: 0 }; const pct = ((p.price - h.avg_buy) / h.avg_buy * 100).toFixed(1); return `${h.ticker} (${h.name}): ${h.shares} shares, avg buy €${h.avg_buy}, current €${p.price.toFixed(2)}, P&L: ${pct}%, today: ${p.change >= 0 ? "+" : ""}${p.change.toFixed(2)}%`; }).join("\n");
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  const [chatUsage, setChatUsage] = useState(() => getAIUsage(user.id, "chat"));
-  const canChat = user.plan !== "free" || chatUsage < AI_FREE_LIMIT;
-
-  const sendMessage = async (text?: string) => {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    if (user.plan === "free" && chatUsage >= AI_FREE_LIMIT) return;
-    setInput("");
-    const userMsg: ChatMessage = { role: "user", content: msg };
-    setMessages(prev => [...prev, userMsg]);
-    setLoading(true);
-    try {
-      const history = [...messages.slice(-10), userMsg].map(m => ({ role: m.role, content: m.content }));
-      const resp = await fetch("/ai-analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "chat", message: msg, history: history.slice(0, -1), portfolioSummary }) });
-      const data = await resp.json();
-      if (user.plan === "free") { const next = incrementAIUsage(user.id, "chat"); setChatUsage(next); }
-      setMessages(prev => [...prev, { role: "assistant", content: data.result || data.error || "Sorry, I could not respond." }]);
-    } catch { setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please try again." }]); }
-    setLoading(false);
-  };
-
-  const isPro = canChat;
-
-  return <div style={{ maxWidth: 760, display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", minHeight: 500 }}>
-    <div className="card anim-fadeUp" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}>
-      <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, animation: "glow 3s ease infinite" }}>🤖</div>
-          <div>
-            <div className="syne" style={{ fontWeight: 700, fontSize: 15 }}>StockPulse AI Advisor</div>
-            <div style={{ fontSize: 11, color: C.green, display: "flex", alignItems: "center", gap: 4 }}><Dot color={C.green} ping={true} /> Online · Knows your portfolio in real time</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {messages.length > 0 && <button className="btn-ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setMessages([])}>Clear chat</button>}
-          {user.plan === "free" && canChat && <Badge color={C.gold}>{AI_FREE_LIMIT - chatUsage} free {AI_FREE_LIMIT - chatUsage === 1 ? "message" : "messages"} left</Badge>}
-        </div>
-      </div>
-    </div>
-    <div style={{ flex: 1, overflowY: "auto", background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderBottom: "none", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-      {messages.length === 0 && <div style={{ textAlign: "center", padding: "32px 0" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>💬</div>
-        <div className="syne" style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Ask me anything about your portfolio</div>
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>I know your holdings, current prices and P&L in real time.</div>
-        {!canChat ? <AIUpgradePrompt /> : (
-          <>
-            {user.plan === "free" && <div style={{ fontSize: 12, color: C.gold, background: C.goldDim, padding: "6px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>🎁 {AI_FREE_LIMIT - chatUsage} free {AI_FREE_LIMIT - chatUsage === 1 ? "message" : "messages"} remaining</div>}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-              {SUGGESTED_QUESTIONS.map((q, i) => <button key={i} onClick={() => sendMessage(q)}
-                style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 20, padding: "7px 14px", fontSize: 12, color: C.accent, cursor: "pointer", transition: "all 0.2s" }}>{q}</button>)}
-            </div>
-          </>
-        )}
-      </div>}
-      {messages.map((m, i) => <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.3s ease" }}>
-        {m.role === "assistant" && <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10, flexShrink: 0, alignSelf: "flex-end" }}>🤖</div>}
-        <div style={{ maxWidth: "75%", padding: "12px 16px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? C.accent : C.surface, border: m.role === "assistant" ? `1px solid ${C.border}` : "none", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: m.role === "user" ? "white" : C.text }}>{m.content}</div>
-        {m.role === "user" && <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.accent + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: 10, flexShrink: 0, alignSelf: "flex-end", color: C.accent, fontWeight: 700 }}>{user.name[0].toUpperCase()}</div>}
-      </div>)}
-      {loading && <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🤖</div>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "18px 18px 18px 4px", padding: "12px 18px", display: "flex", gap: 5, alignItems: "center" }}>
-          {[0, 1, 2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, animation: `pulse 1.2s ${j * 0.2}s ease infinite` }} />)}
-        </div>
-      </div>}
-      <div ref={bottomRef} />
-    </div>
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-end" }}>
-      <textarea className="input-field" placeholder={isPro ? "Ask anything about your portfolio... (Enter to send)" : "Upgrade to Pro to chat with AI..."} value={input} disabled={!isPro}
-        onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-        style={{ resize: "none", height: 44, lineHeight: "24px", paddingTop: 10, flex: 1, opacity: isPro ? 1 : 0.5 }} rows={1} />
-      <button className="btn-primary" onClick={() => sendMessage()} disabled={loading || !input.trim() || !isPro}
-        style={{ height: 44, width: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-        {loading ? <Spinner /> : "↑"}
-      </button>
-    </div>
-  </div>;
-}
-
-// ─── SUPPORT TAB ─────────────────────────────────────────────────────────────
-const FAQ_ITEMS = [
-  { q: "How do I import my portfolio from Lynx or DEGIRO?", a: "Go to the Portfolio tab and click 'Import CSV'. Export your portfolio from your broker as CSV and upload it. StockPulse supports Lynx/IBKR, DEGIRO and universal CSV formats." },
-  { q: "What is the difference between Free, Pro and Elite?", a: "Free gives you 5 positions and 3 alerts. Pro (€19/mo) gives unlimited positions, live prices, unlimited alerts and AI analysis. Elite (€49/mo) adds priority support and API access." },
-  { q: "How do I cancel my subscription?", a: "Email support@stockpulse.fit and we will cancel your subscription immediately. A self-service cancel button is coming soon." },
-  { q: "How do I set a price alert?", a: "Go to the Alerts tab, enter a ticker symbol, choose 'above' or 'below' and set your target price. You will be notified when the price is reached." },
-  { q: "Which stocks are supported?", a: "Any stock with a valid ticker symbol — ASML, NVDA, AAPL, ADYEN and thousands more. If you know the ticker, StockPulse can track it." },
-  { q: "How do I use a promo code?", a: "Go to Account tab and enter your promo code in the 'Promo Code' section. It will upgrade your plan instantly for free." },
-  { q: "Is my data safe?", a: "Yes — all data is stored securely in Supabase with row-level security. Only you can access your portfolio data." },
-  { q: "How often are prices updated?", a: "Live prices are updated every 30 seconds during market hours via Finnhub." },
-];
-
-function SupportTab() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [openFaq, setOpenFaq]   = useState<number | null>(null);
-  const bottomRef               = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  const sendMessage = async (text?: string) => {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    setInput("");
-    const userMsg: ChatMessage = { role: "user", content: msg };
-    setMessages(prev => [...prev, userMsg]);
-    setLoading(true);
-    try {
-      const history = [...messages.slice(-6), userMsg].map(m => ({ role: m.role, content: m.content }));
-      const resp = await fetch("/support-chat", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, history: history.slice(0, -1) }),
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: `Je bent een ervaren beleggingsanalist. Analyseer dit portfolio en geef een bondige analyse in het Nederlands. Gebruik emoji's voor leesbaarheid. Structuur: 1) Korte samenvatting 2) Sterke punten 3) Risico's 4) Top 2 aanbevelingen. Max 300 woorden. Houd het praktisch en concreet.
+
+Portfolio:
+${portfolioSummary || "Geen posities toegevoegd."}
+
+Marktsituatie mei 2026: AI-sector sterk, Europese halfgeleiders onder druk van exportrestricties, energietransitie groeit.`
+          }]
+        })
       });
-      const data = await resp.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.result || "Sorry, I could not respond. Please email support@stockpulse.fit" }]);
+      const data = await response.json();
+      setResult(data.content?.[0]?.text || "Analyse kon niet worden geladen.");
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection error. Please email support@stockpulse.fit" }]);
+      setResult("❌ Kon geen verbinding maken met AI. Probeer opnieuw.");
     }
     setLoading(false);
   };
 
-  const QUICK_QUESTIONS = ["How do I import from DEGIRO?", "How do I cancel my subscription?", "What does Pro include?", "How do price alerts work?"];
-
-  return <div style={{ maxWidth: 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
-    {/* FAQ */}
-    <div>
+  return (
+    <div style={{ maxWidth: 720 }}>
       <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>❓ Frequently Asked Questions</span>
-        </div>
-        {FAQ_ITEMS.map((item, i) => (
-          <div key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
-            <div onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              style={{ padding: "14px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.2s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)} onMouseLeave={e => (e.currentTarget.style.background = "")}>
-              <span style={{ fontSize: 13, fontWeight: 500 }}>{item.q}</span>
-              <span style={{ color: C.accent, fontSize: 16, flexShrink: 0, marginLeft: 8 }}>{openFaq === i ? "−" : "+"}</span>
-            </div>
-            {openFaq === i && (
-              <div style={{ padding: "0 20px 14px", fontSize: 13, color: C.mutedLight, lineHeight: 1.6, animation: "fadeIn 0.2s ease" }}>{item.a}</div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Contact */}
-      <div className="card anim-fadeUp-1" style={{ padding: 20 }}>
-        <div className="syne" style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📧 Contact Support</div>
-        <div style={{ fontSize: 13, color: C.mutedLight, lineHeight: 1.7 }}>
-          Can't find your answer? Email us directly:<br />
-          <a href="mailto:support@stockpulse.fit" style={{ color: C.accent, textDecoration: "none", fontWeight: 600 }}>support@stockpulse.fit</a>
-        </div>
-        <div style={{ marginTop: 12, fontSize: 12, color: C.muted }}>We typically respond within 24 hours.</div>
-      </div>
-    </div>
-
-    {/* AI Support Chat */}
-    <div style={{ display: "flex", flexDirection: "column", height: 600 }}>
-      <div className="card anim-fadeUp" style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "none" }}>
-        <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🆘</div>
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div className="syne" style={{ fontWeight: 700, fontSize: 14 }}>AI Support Assistant</div>
-            <div style={{ fontSize: 11, color: C.green, display: "flex", alignItems: "center", gap: 4 }}><Dot color={C.green} ping={true} /> Online · Knows StockPulse inside out</div>
+            <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>🤖 AI Portfolio Analysis</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>Powered by Claude · {user.plan === "free" ? "Upgrade required" : "Pro/Elite available"}</div>
           </div>
+          <button className="btn-primary" onClick={runAnalysis} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 8, opacity: user.plan === "free" ? 0.5 : 1 }}>
+            {loading ? <><Spinner /> Analyzing...</> : "▶ Analyze now"}
+          </button>
+        </div>
+        <div style={{ padding: "16px 24px" }}>
+          {!result && !loading && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
+              <div style={{ fontSize: 14 }}>Click "Analyze now" for an AI analysis of your portfolio.</div>
+              {user.plan === "free" && <div style={{ fontSize: 13, color: C.accent, marginTop: 8 }}>Upgrade to Pro to use AI analysis.</div>}
+            </div>
+          )}
+          {loading && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Spinner /></div>
+              <div style={{ fontSize: 14 }}>AI is analyzing your portfolio...</div>
+            </div>
+          )}
+          {result && (
+            <div style={{ fontSize: 14, lineHeight: 1.8, color: C.text, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{result}</div>
+          )}
         </div>
       </div>
-
-      <div style={{ flex: 1, overflowY: "auto", background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderBottom: "none", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {messages.length === 0 && (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🆘</div>
-            <div className="syne" style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>How can I help you?</div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Ask me anything about StockPulse</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
-              {QUICK_QUESTIONS.map((q, i) => (
-                <button key={i} onClick={() => sendMessage(q)}
-                  style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 16, padding: "5px 12px", fontSize: 11, color: C.accent, cursor: "pointer" }}>
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-            {m.role === "assistant" && <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, marginRight: 8, flexShrink: 0, alignSelf: "flex-end" }}>🆘</div>}
-            <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? C.accent : C.surface, border: m.role === "assistant" ? `1px solid ${C.border}` : "none", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: m.role === "user" ? "white" : C.text }}>{m.content}</div>
-          </div>
-        ))}
-        {loading && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #8b5cf6)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🆘</div>
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "16px 16px 16px 4px", padding: "10px 14px", display: "flex", gap: 4 }}>
-              {[0, 1, 2].map(j => <div key={j} style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, animation: `pulse 1.2s ${j * 0.2}s ease infinite` }} />)}
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: "10px 14px", display: "flex", gap: 8 }}>
-        <input className="input-field" placeholder="Ask a question..." value={input}
-          onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
-          style={{ flex: 1, height: 38, padding: "8px 12px" }} />
-        <button className="btn-primary" onClick={() => sendMessage()} disabled={loading || !input.trim()}
-          style={{ height: 38, width: 38, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-          {loading ? <Spinner /> : "↑"}
-        </button>
-      </div>
     </div>
-  </div>;
+  );
 }
 
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange, currentTheme }: { user: Profile; onUpgrade: (plan: string) => void; onPromoApplied: (plan: string) => void; onLogout: () => void; onThemeChange: (t: string) => void; currentTheme: string }) {
+function SettingsTab({ user, onUpgrade, onLogout }) {
   const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
-  const [promoCode, setPromoCode] = useState("");
-  const [promoMsg, setPromoMsg]   = useState("");
-  const [promoLoading, setPromoLoading] = useState(false);
-
-  // Promo codes — friends & family get free upgrades
-  const PROMO_CODES: Record<string, string> = {
-    "FRIENDS2024": "pro",
-    "FAMILY2024":  "elite",
-    "STOCKPULSE":  "pro",
-  };
-
-  const applyPromo = async () => {
-    const code = promoCode.trim().toUpperCase();
-    const plan = PROMO_CODES[code];
-    if (!plan) { setPromoMsg("❌ Invalid promo code. Please try again."); return; }
-    if (plan === user.plan) { setPromoMsg("✅ You already have this plan!"); return; }
-    setPromoLoading(true);
-    await supabase.from("profiles").update({ plan }).eq("id", user.id);
-    onPromoApplied(plan);
-    setPromoMsg(`🎉 Code applied! You are now on the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan.`);
-    setPromoLoading(false);
-    setPromoCode("");
-  };
-
-  return <div style={{ maxWidth: 680 }}>
-    <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Account</span></div>
-      <div style={{ padding: 24, display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.accent + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: C.accent }}>{user.name[0].toUpperCase()}</div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>{user.name}</div>
-          <div style={{ fontSize: 13, color: C.muted }}>{user.email}</div>
-          <div style={{ marginTop: 4 }}><Badge color={currentPlan.color}>{currentPlan.name.toUpperCase()} PLAN</Badge></div>
+  return (
+    <div style={{ maxWidth: 680 }}>
+      <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Account</span>
         </div>
-      </div>
-    </div>
-
-    {/* Promo code */}
-    <div className="card anim-fadeUp-1" style={{ marginBottom: 16 }}>
-      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🎁 Promo Code</span></div>
-      <div style={{ padding: 20, display: "flex", gap: 10, alignItems: "flex-start", flexDirection: "column" }}>
-        <div style={{ display: "flex", gap: 10, width: "100%" }}>
-          <input className="input-field" placeholder="Enter promo code..." value={promoCode}
-            onChange={e => { setPromoCode(e.target.value); setPromoMsg(""); }}
-            onKeyDown={e => e.key === "Enter" && applyPromo()}
-            style={{ flex: 1 }} />
-          <button className="btn-primary" onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
-            style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-            {promoLoading ? <Spinner /> : "Apply"}
-          </button>
-        </div>
-        {promoMsg && <div style={{ fontSize: 13, color: promoMsg.startsWith("❌") ? C.red : C.green, background: promoMsg.startsWith("❌") ? C.redDim : C.greenDim, padding: "8px 12px", borderRadius: 8, width: "100%" }}>{promoMsg}</div>}
-      </div>
-    </div>
-
-    {/* Upgrade plans */}
-    <div className="card anim-fadeUp-2" style={{ marginBottom: 16 }}>
-      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Upgrade Plan</span></div>
-      <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {PLANS.filter(p => p.id !== user.plan).map(plan => (
-          <div key={plan.id} className="card" style={{ padding: 16, border: `1px solid ${plan.color}44` }}>
-            <div style={{ color: plan.color, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{plan.name}</div>
-            <div className="mono" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{plan.price === 0 ? "Free" : `€${plan.price}/mo`}</div>
-            {plan.features.slice(0, 3).map((f, i) => <div key={i} style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>✓ {f}</div>)}
-            <button className="btn-primary" onClick={() => onUpgrade(plan.id)}
-              style={{ width: "100%", marginTop: 12, fontSize: 13, padding: 9, background: plan.id === "elite" ? C.gold : C.accent }}>
-              {plan.price === 0 ? "Downgrade" : "Pay with Stripe →"}
-            </button>
+        <div style={{ padding: 24, display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.accent + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: C.accent }}>
+            {user.name[0].toUpperCase()}
           </div>
-        ))}
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>{user.name}</div>
+            <div style={{ fontSize: 13, color: C.muted }}>{user.email}</div>
+            <div style={{ marginTop: 4 }}><Badge color={currentPlan.color}>{currentPlan.name.toUpperCase()} PLAN</Badge></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card anim-fadeUp-1" style={{ marginBottom: 16 }}>
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Plan upgraden</span>
+        </div>
+        <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          {PLANS.filter(p => p.id !== user.plan).map(plan => (
+            <div key={plan.id} className="card" style={{ padding: 16, border: `1px solid ${plan.color}44` }}>
+              <div style={{ color: plan.color, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{plan.name}</div>
+              <div className="mono" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+                {plan.price === 0 ? "Gratis" : `€${plan.price}/mnd`}
+              </div>
+              {plan.features.slice(0, 3).map((f, i) => (
+                <div key={i} style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>✓ {f}</div>
+              ))}
+              <button className="btn-primary" onClick={() => onUpgrade(plan.id)} style={{ width: "100%", marginTop: 12, fontSize: 13, padding: "9px", background: plan.id === "elite" ? C.gold : C.accent }}>
+                Upgraden →
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card anim-fadeUp-2" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 14, color: C.muted }}>Uitloggen van je account</div>
+        <button className="btn-ghost" onClick={onLogout} style={{ color: C.red, borderColor: C.red + "44" }}>Uitloggen</button>
       </div>
     </div>
-
-    {/* Theme selector */}
-    <div className="card anim-fadeUp-3" style={{ marginBottom: 16 }}>
-      <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}><span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🎨 Theme</span></div>
-      <div style={{ padding: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        {Object.entries(THEME_LABELS).map(([key, { label, preview }]) => (
-          <button key={key} onClick={() => onThemeChange(key)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10, border: `2px solid ${currentTheme === key ? C.accent : C.border}`, background: currentTheme === key ? C.accentDim : "transparent", cursor: "pointer", transition: "all 0.2s" }}>
-            <span style={{ width: 16, height: 16, borderRadius: "50%", background: preview, border: `2px solid ${C.border}`, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: currentTheme === key ? C.accent : C.mutedLight, fontWeight: currentTheme === key ? 600 : 400 }}>{label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-
-    <div className="card anim-fadeUp-4" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ fontSize: 14, color: C.muted }}>Sign out of your account</div>
-      <button className="btn-ghost" onClick={onLogout} style={{ color: C.red, borderColor: C.red + "44" }}>Sign out</button>
-    </div>
-  </div>;
+  );
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser] = useState<Profile | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("sp_theme") || "dark");
-  C = THEMES[currentTheme] || THEMES.dark;
+  const prices = useLivePrices();
+  const [user, setUser]   = useStorage("sp_user", null);
+  const [page, setPage]   = useState("landing"); // landing | login | signup | app
+  const [tab, setTab]     = useState("portfolio");
 
-  const handleThemeChange = (theme: string) => {
-    localStorage.setItem("sp_theme", theme);
-    setCurrentTheme(theme);
-  };
-  const [page, setPage] = useState<"landing" | "login" | "signup" | "app">("landing");
-  const [tab, setTab]   = useState("portfolio");
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  const allTickers = MARKET_TICKERS.map(m => m.ticker);
-  const { prices, lastUpdated, refresh } = useLivePrices(allTickers);
-
-  // Listen for goto-settings event from CSV importer
-  useEffect(() => {
-    const handler = () => setTab("settings");
-    window.addEventListener("goto-settings", handler);
-    return () => window.removeEventListener("goto-settings", handler);
-  }, []);
-
-  // Check existing session on load
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        if (profile) {
-          // Check if returning from Stripe with upgraded plan
-          const params = new URLSearchParams(window.location.search);
-          const upgraded = params.get("upgraded");
-          if (upgraded && ["pro", "elite"].includes(upgraded)) {
-            // Update Supabase immediately (don't wait for webhook)
-            await supabase.from("profiles").update({ plan: upgraded }).eq("id", session.user.id);
-            setUser({ ...profile, plan: upgraded as Profile["plan"] });
-            // Clean up URL
-            window.history.replaceState({}, "", "/");
-          } else {
-            setUser(profile);
-          }
-          setPage("app");
-          setTab("settings");
-        }
-      }
-      setCheckingAuth(false);
-    });
-    supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      if (event === "SIGNED_OUT") { setUser(null); setPage("landing"); }
-    });
-  }, []);
-
-  const handleAuth = (u: Profile) => { setUser(u); setPage("app"); };
-  const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("landing"); };
-  const handlePromoApplied = (planId: string) => {
-    setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
-  };
-
-  const handleUpgrade = async (planId: string) => {
-    // If downgrading to free or plan set via promo code, just update state
-    if (planId === "free") {
-      await supabase.from("profiles").update({ plan: planId }).eq("id", user!.id);
-      setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
-      return;
+  const handleAuth = (userData) => { setUser(userData); setPage("app"); };
+  const handleLogout = () => { setUser(null); setPage("landing"); };
+  const handleUpgrade = (planId) => {
+    const plan = PLANS.find(p => p.id === planId);
+    if (planId !== "free") {
+      alert(`💳 Stripe checkout zou hier openen voor het ${plan.name} plan (€${plan.price}/mnd).\n\nIn productie: integreer Stripe Checkout voor betalingen.`);
     }
-    // Update local state immediately (for promo code upgrades)
-    setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
-    // For paid plans — redirect to Stripe
-    try {
-      const resp = await fetch("/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, email: user!.email, userId: user!.id }),
-      });
-      const data = await resp.json();
-      if (data.url) window.location.href = data.url;
-      else alert("Could not start checkout. Please try again.");
-    } catch { alert("Could not connect to payment system. Please try again."); }
+    setUser(prev => ({ ...prev, plan: planId }));
   };
+
+  useEffect(() => { if (user) setPage("app"); }, []);
 
   const TABS = [
     { id: "portfolio", label: "📊 Portfolio" },
-    { id: "markt",     label: "🌐 Market" },
-    { id: "alerts",    label: "🔔 Alerts" },
-    { id: "dividends", label: "💰 Dividends" },
-    { id: "ai",        label: "🤖 AI Analysis" },
-    { id: "chat",      label: "💬 AI Chat" },
-    { id: "support",   label: "🆘 Support" },
-    { id: "settings",  label: "⚙️ Account" },
+    { id: "markt",    label: "🌐 Markt" },
+    { id: "alerts",   label: "🔔 Alerts" },
+    { id: "ai",       label: "🤖 AI Analyse", pro: true },
+    { id: "settings", label: "⚙️ Account" },
   ];
 
-  if (checkingAuth) return <><style>{makeGlobalStyle(C)}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
-  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>;
-  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} /></>;
-  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} /></>;
+  if (page === "landing") return (<><style>{GLOBAL_STYLE}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>);
+  if (page === "login")   return (<><style>{GLOBAL_STYLE}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} /></>);
+  if (page === "signup")  return (<><style>{GLOBAL_STYLE}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} /></>);
 
-  return <div style={{ minHeight: "100vh" }}>
-    <style>{makeGlobalStyle(C)}</style>
-    <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, animation: "glow 3s ease infinite" }}>◈</div>
-        <div><div className="syne" style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5 }}>StockPulse</div><div style={{ fontSize: 10, color: C.muted, fontFamily: "JetBrains Mono" }}>PORTFOLIO PRO</div></div>
+  return (
+    <div style={{ minHeight: "100vh" }}>
+      <style>{GLOBAL_STYLE}</style>
+
+      {/* Header */}
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, animation: "glow 3s ease infinite" }}>◈</div>
+          <div>
+            <div className="syne" style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5 }}>StockPulse</div>
+            <div style={{ fontSize: 10, color: C.muted, fontFamily: "JetBrains Mono" }}>PORTFOLIO PRO</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Dot color={C.green} ping />
+            <span style={{ fontSize: 12, color: C.muted }}>Live</span>
+          </div>
+          <Badge color={PLANS.find(p => p.id === user?.plan)?.color || C.muted}>{(user?.plan || "free").toUpperCase()}</Badge>
+          <div style={{ fontSize: 13, color: C.mutedLight }}>👤 {user?.name}</div>
+        </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Dot color={C.green} ping /><span style={{ fontSize: 12, color: C.muted }}>{FINNHUB_KEY ? "Live" : "Simulated"}</span></div>
-        <Badge color={PLANS.find(p => p.id === user?.plan)?.color || C.muted}>{(user?.plan || "free").toUpperCase()}</Badge>
-        <div style={{ fontSize: 13, color: C.mutedLight }}>👤 {user?.name}</div>
+
+      <TickerBanner prices={prices} />
+
+      {/* Nav */}
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "10px 28px", display: "flex", gap: 4, overflowX: "auto" }}>
+        {TABS.map(t => (
+          <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}
+            style={{ position: "relative" }}>
+            {t.label}
+            {t.pro && user?.plan === "free" && <span style={{ marginLeft: 4, fontSize: 10, color: C.gold }}>PRO</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "28px", maxWidth: 1300, margin: "0 auto" }}>
+        {tab === "portfolio" && <PortfolioTab prices={prices} user={user} />}
+        {tab === "markt"     && <MarketTab    prices={prices} />}
+        {tab === "alerts"    && <AlertsTab    prices={prices} user={user} />}
+        {tab === "ai"        && <AIAnalyseTab prices={prices} user={user} />}
+        {tab === "settings"  && <SettingsTab  user={user} onUpgrade={handleUpgrade} onLogout={handleLogout} />}
       </div>
     </div>
-    <TickerBanner prices={prices} />
-    <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "10px 28px", display: "flex", gap: 4, overflowX: "auto" }}>
-      {TABS.map(t => <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-        {t.label}
-      </button>)}
-    </div>
-    <div style={{ padding: 28, maxWidth: 1300, margin: "0 auto" }}>
-      {tab === "portfolio" && <PortfolioTab prices={prices} user={user!} onRefresh={refresh} lastUpdated={lastUpdated} />}
-      {tab === "markt"     && <MarketTab    prices={prices} lastUpdated={lastUpdated} onRefresh={refresh} />}
-      {tab === "alerts"    && <AlertsTab    prices={prices} user={user!} />}
-      {tab === "dividends"  && <DividendsTab  prices={prices} user={user!} />}
-      {tab === "ai"        && <AIAnalyseTab prices={prices} user={user!} />}
-      {tab === "chat"      && <AIChatTab    prices={prices} user={user!} />}
-      {tab === "support"    && <SupportTab />}
-      {tab === "settings"  && <SettingsTab  user={user!} onUpgrade={handleUpgrade} onPromoApplied={handlePromoApplied} onLogout={handleLogout} onThemeChange={handleThemeChange} currentTheme={currentTheme} />}
-    </div>
-  </div>;
+  );
 }
