@@ -332,527 +332,171 @@ function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () 
     </div>
   );
 }
-// ─── AUTH FORMS ───────────────────────────────────────────────────────────────
-function AuthForm({ mode, onAuth, onSwitch }) {
+// ─── AUTH FORM ────────────────────────────────────────────────────────────────
+const AUTH_COPY = {
+  nl: {
+    welcomeBack: "Welkom terug",
+    createAccount: "Maak je account aan",
+    loginSub: "Log in op je StockPulse account",
+    signupSub: "Gratis starten, upgrade wanneer je wilt",
+    name: "Jouw naam",
+    email: "E-mailadres",
+    password: "Wachtwoord",
+    choosePlan: "Kies je plan",
+    loginBtn: "Inloggen →",
+    signupBtn: "Account aanmaken →",
+    loggingIn: "Inloggen...",
+    creatingAccount: "Account aanmaken...",
+    noAccount: "Nog geen account? ",
+    hasAccount: "Al een account? ",
+    signupFree: "Gratis registreren",
+    login: "Inloggen",
+    orGoogle: "Of ga verder met",
+    fillFields: "Vul alle velden in.",
+    enterName: "Vul je naam in.",
+  },
+  en: {
+    welcomeBack: "Welcome back",
+    createAccount: "Create your account",
+    loginSub: "Log in to your StockPulse account",
+    signupSub: "Start free, upgrade whenever you want",
+    name: "Your name",
+    email: "Email address",
+    password: "Password",
+    choosePlan: "Choose your plan",
+    loginBtn: "Log in →",
+    signupBtn: "Create account →",
+    loggingIn: "Logging in...",
+    creatingAccount: "Creating account...",
+    noAccount: "No account yet? ",
+    hasAccount: "Already have an account? ",
+    signupFree: "Sign up free",
+    login: "Log in",
+    orGoogle: "Or continue with",
+    fillFields: "Please fill in all fields.",
+    enterName: "Please enter your name.",
+  },
+};
+
+function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange }: {
+  mode: "login" | "signup";
+  onAuth: (u: Profile) => void;
+  onSwitch: () => void;
+  currentTheme: string;
+  onThemeChange: (t: string) => void;
+}) {
+  const lang = navigator.language?.startsWith("nl") ? "nl" : "en";
+  const t = AUTH_COPY[lang];
   const [email, setEmail] = useState("");
   const [pass, setPass]   = useState("");
   const [name, setName]   = useState("");
-  const [plan, setPlan]   = useState("free");
+  const [plan, setPlan]   = useState<Profile["plan"]>("free");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
-    if (!email || !pass) { setError("Please fill in all fields."); return; }
+    if (!email || !pass) { setError(t.fillFields); return; }
+    if (mode === "signup" && !name) { setError(t.enterName); return; }
     setLoading(true); setError("");
-    await new Promise(r => setTimeout(r, 800));
-    setLoading(false);
-    onAuth({ email, name: name || email.split("@")[0], plan });
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 420, padding: 36 }}>
-        <div className="syne" style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
-          {mode === "login" ? "Welcome back" : "Create your account"}
-        </div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 28 }}>
-          {mode === "login" ? "Log in to your StockPulse account" : "Start free, upgrade whenever you want"}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {mode === "signup" && (
-            <input className="input-field" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
-          )}
-          <input className="input-field" placeholder="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="input-field" placeholder="Password" type="password" value={pass} onChange={e => setPass(e.target.value)} />
-
-          {mode === "signup" && (
-            <div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: 500 }}>Choose your plan</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {PLANS.map(p => (
-                  <button key={p.id} onClick={() => setPlan(p.id)}
-                    style={{ flex: 1, padding: "8px 4px", border: `1px solid ${plan === p.id ? p.color : C.border}`, borderRadius: 8, background: plan === p.id ? p.color + "22" : "transparent", color: plan === p.id ? p.color : C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
-
-          <button className="btn-primary" onClick={handleSubmit} style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px" }}>
-            {loading ? <Spinner /> : (mode === "login" ? "Log in" : "Create account")}
-          </button>
-        </div>
-
-        <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: C.muted }}>
-          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-          <button onClick={onSwitch} style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-            {mode === "login" ? "Sign up" : "Log in"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── PORTFOLIO TAB ────────────────────────────────────────────────────────────
-function PortfolioTab({ prices, user }) {
-  const [holdings, setHoldings] = useStorage(`holdings_${user.email}`, [
-    { ticker: "ASML", shares: 5,  avgBuy: 680 },
-    { ticker: "NVDA", shares: 10, avgBuy: 900 },
-    { ticker: "MSFT", shares: 20, avgBuy: 380 },
-    { ticker: "ASMI", shares: 8,  avgBuy: 550 },
-  ]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ ticker: "", shares: "", avgBuy: "" });
-  const limit = user.plan === "free" ? 5 : 9999;
-
-  const totalValue = holdings.reduce((s, h) => s + (prices[h.ticker]?.price || h.avgBuy) * h.shares, 0);
-  const totalCost  = holdings.reduce((s, h) => s + h.avgBuy * h.shares, 0);
-  const totalPnL   = totalValue - totalCost;
-  const totalPct   = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
-  const dayPnL     = holdings.reduce((s, h) => s + (prices[h.ticker]?.price || h.avgBuy) * h.shares * (prices[h.ticker]?.change || 0) / 100, 0);
-
-  const addHolding = () => {
-    const t = form.ticker.toUpperCase().trim();
-    if (!t || !form.shares || !form.avgBuy) return;
-    if (holdings.length >= limit) { alert(`Free plan: max ${limit} positions. Upgrade to Pro for unlimited.`); return; }
-    setHoldings(p => [...p, { ticker: t, shares: +form.shares, avgBuy: +form.avgBuy }]);
-    setForm({ ticker: "", shares: "", avgBuy: "" }); setShowAdd(false);
-  };
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-        <StatCard label="Portfolio Value"  value={`€${totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}    sub="Live prices"               delay={1} />
-        <StatCard label="Total P&L"       value={`${totalPnL >= 0 ? "+" : ""}€${Math.abs(totalPnL).toFixed(0)}`}             sub={`${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}% return`} accent={totalPnL >= 0 ? C.green : C.red} delay={2} />
-        <StatCard label="Day P&L"          value={`${dayPnL >= 0 ? "+" : ""}€${Math.abs(dayPnL).toFixed(0)}`}                 sub="Today"                    accent={dayPnL >= 0 ? C.green : C.red} delay={3} />
-        <StatCard label="Positions"         value={`${holdings.length}/${user.plan === "free" ? limit : "∞"}`}                  sub={user.plan === "free" ? "Free plan" : "Pro plan"}   accent={C.gold} delay={4} />
-      </div>
-
-      <div className="card anim-fadeUp">
-        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 15 }}>My Positions</span>
-          <button className="btn-primary" onClick={() => setShowAdd(!showAdd)} style={{ padding: "7px 16px", fontSize: 13 }}>+ Position</button>
-        </div>
-
-        {showAdd && (
-          <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}`, background: C.accentDim, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-            {[["Ticker", "ticker", "text"], ["Shares", "shares", "number"], ["Buy price €", "avgBuy", "number"]].map(([label, key, type]) => (
-              <div key={key} style={{ flex: 1, minWidth: 130 }}>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 500 }}>{label}</div>
-                <input className="input-field" type={type} placeholder={label} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
-              </div>
-            ))}
-            <button className="btn-primary" onClick={addHolding} style={{ padding: "10px 20px", flexShrink: 0 }}>Save</button>
-          </div>
-        )}
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: C.surface }}>
-                {["Stock", "Sector", "Price", "Day%", "Shares", "Value", "P&L", ""].map((h, i) => (
-                  <th key={i} style={{ padding: "11px 20px", textAlign: i > 1 ? "right" : "left", fontSize: 11, color: C.muted, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h, i) => {
-                const p   = prices[h.ticker] || { price: h.avgBuy, change: 0, name: h.ticker, sector: "—" };
-                const val = p.price * h.shares;
-                const pnl = (p.price - h.avgBuy) * h.shares;
-                const pct = ((p.price - h.avgBuy) / h.avgBuy) * 100;
-                return (
-                  <tr key={i} style={{ borderTop: `1px solid ${C.border}`, transition: "background 0.15s", cursor: "default" }}
-                    onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <td style={{ padding: "14px 20px" }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{h.ticker}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>{p.name}</div>
-                    </td>
-                    <td style={{ padding: "14px 20px" }}><Badge>{p.sector}</Badge></td>
-                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 14 }}>€{p.price.toFixed(2)}</td>
-                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", color: p.change >= 0 ? C.green : C.red, fontSize: 13 }}>
-                      {p.change >= 0 ? "▲" : "▼"} {Math.abs(p.change).toFixed(2)}%
-                    </td>
-                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 13 }}>{h.shares}</td>
-                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", fontSize: 14 }}>€{val.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}</td>
-                    <td className="mono" style={{ padding: "14px 20px", textAlign: "right", color: pnl >= 0 ? C.green : C.red, fontSize: 13 }}>
-                      <div>{pnl >= 0 ? "+" : ""}€{Math.abs(pnl).toFixed(0)}</div>
-                      <div style={{ fontSize: 11 }}>{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%</div>
-                    </td>
-                    <td style={{ padding: "14px 12px" }}>
-                      <button onClick={() => setHoldings(p => p.filter((_, j) => j !== i))}
-                        style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 15, padding: "4px 8px", borderRadius: 6, transition: "all 0.2s" }}
-                        onMouseEnter={e => { e.target.color = C.red; e.target.style.color = C.red; }}
-                        onMouseLeave={e => { e.target.style.color = C.muted; }}>✕</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── MARKET TAB ───────────────────────────────────────────────────────────────
-function MarketTab({ prices }) {
-  const sorted = Object.entries(prices).sort((a, b) => b[1].change - a[1].change);
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
-        {sorted.map(([ticker, d], i) => (
-          <div key={ticker} className="card card-hover" style={{ padding: "20px", transition: "all 0.2s", animationDelay: `${i * 0.03}s`, animation: "fadeUp 0.4s ease both", borderColor: d.change > 2 ? C.green + "44" : d.change < -1 ? C.red + "33" : C.border }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-              <div>
-                <div className="syne" style={{ fontWeight: 700, fontSize: 15 }}>{ticker}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{d.name}</div>
-              </div>
-              <div style={{ background: d.change >= 0 ? C.greenDim : C.redDim, color: d.change >= 0 ? C.green : C.red, borderRadius: 7, padding: "4px 8px", fontSize: 12, fontFamily: "JetBrains Mono" }}>
-                {d.change >= 0 ? "▲" : "▼"} {Math.abs(d.change).toFixed(2)}%
-              </div>
-            </div>
-            <div className="mono" style={{ fontSize: 24, fontWeight: 700 }}>€{d.price.toFixed(2)}</div>
-            <div style={{ marginTop: 12 }}><Badge color={d.change >= 0 ? C.green : C.muted}>{d.sector}</Badge></div>
-            <div style={{ marginTop: 12, height: 3, background: C.border, borderRadius: 2 }}>
-              <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, 50 + d.change * 8))}%`, background: d.change >= 0 ? C.green : C.red, borderRadius: 2, transition: "width 1.5s ease" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── ALERTS TAB ───────────────────────────────────────────────────────────────
-function AlertsTab({ prices, user }) {
-  const [alerts, setAlerts]   = useStorage(`alerts_${user.email}`, [
-    { id: 1, ticker: "ASML", type: "above", target: 800,  active: true },
-    { id: 2, ticker: "NVDA", type: "below", target: 1000, active: true },
-    { id: 3, ticker: "MU",   type: "above", target: 130,  active: true },
-  ]);
-  const [log, setLog]         = useStorage(`alertlog_${user.email}`, []);
-  const [form, setForm]       = useState({ ticker: "", type: "above", target: "" });
-  const [emailSim, setEmailSim] = useState(null);
-  const limit = user.plan === "free" ? 3 : 9999;
-
-  useEffect(() => {
-    setAlerts(prev => prev.map(a => {
-      if (!a.active) return a;
-      const cur = prices[a.ticker]?.price;
-      if (!cur) return a;
-      const hit = a.type === "above" ? cur >= a.target : cur <= a.target;
-      if (hit && !a.triggered) {
-        const entry = { id: Date.now(), msg: `${a.ticker} ${a.type === "above" ? "above" : "below"} €${a.target}`, price: cur.toFixed(2), time: new Date().toLocaleTimeString("en-US") };
-        setLog(l => [entry, ...l.slice(0, 19)]);
-        if (user.plan !== "free") setEmailSim(entry);
-        return { ...a, triggered: true };
-      }
-      return a;
-    }));
-  }, [prices]);
-
-  const addAlert = () => {
-    const t = form.ticker.toUpperCase().trim();
-    if (!t || !form.target) return;
-    if (alerts.length >= limit) { alert(`Free plan: max ${limit} alerts. Upgrade to Pro for unlimited.`); return; }
-    setAlerts(p => [...p, { id: Date.now(), ticker: t, type: form.type, target: +form.target, active: true, triggered: false }]);
-    setForm({ ticker: "", type: "above", target: "" });
-  };
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-      <div>
-        {/* New alert */}
-        <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>New Price Alert</span>
-            <span style={{ marginLeft: 8, fontSize: 11, color: C.muted }}>{alerts.length}/{user.plan === "free" ? limit : "∞"} used</span>
-          </div>
-          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-            <input className="input-field" placeholder="Ticker (e.g. ASML, NVDA)" value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))} />
-            <select className="input-field" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={{ background: C.surface }}>
-              <option value="above">Price rises above →</option>
-              <option value="below">Price drops below →</option>
-            </select>
-            <input className="input-field" type="number" placeholder="Target price in €" value={form.target} onChange={e => setForm(p => ({ ...p, target: e.target.value }))} />
-            <button className="btn-primary" onClick={addAlert}>🔔 Set alert</button>
-          </div>
-        </div>
-
-        {/* Alert list */}
-        <div className="card anim-fadeUp-1">
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Active Alerts</span>
-          </div>
-          {alerts.length === 0 && <div style={{ padding: 24, textAlign: "center", color: C.muted, fontSize: 13 }}>No alerts set.</div>}
-          {alerts.map(a => {
-            const cur = prices[a.ticker]?.price;
-            return (
-              <div key={a.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: a.triggered ? C.goldDim : "transparent", transition: "background 0.3s" }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{a.ticker}</span>
-                    {a.triggered && <Badge color={C.gold}>TRIGGERED</Badge>}
-                  </div>
-                  <div className="mono" style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                    {a.type === "above" ? "▲ above" : "▼ below"} €{a.target}
-                    {cur && <span style={{ marginLeft: 8, color: C.mutedLight }}>· now €{cur.toFixed(2)}</span>}
-                  </div>
-                </div>
-                <button onClick={() => setAlerts(p => p.filter(x => x.id !== a.id))}
-                  style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>✕</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Log + email sim */}
-      <div>
-        {emailSim && (
-          <div className="card anim-fadeUp" style={{ marginBottom: 16, border: `1px solid ${C.green}44`, background: C.greenDim }}>
-            <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.green}33` }}>
-              <span style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>📧 Email notification sent</span>
-            </div>
-            <div style={{ padding: 16, fontSize: 13, color: C.mutedLight, lineHeight: 1.7 }}>
-              <strong style={{ color: C.text }}>To:</strong> {user.email}<br />
-              <strong style={{ color: C.text }}>Subject:</strong> 🔔 StockPulse Alert — {emailSim.msg}<br />
-              <strong style={{ color: C.text }}>Price:</strong> €{emailSim.price} · {emailSim.time}
-            </div>
-            <div style={{ padding: "10px 20px" }}><button className="btn-ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setEmailSim(null)}>Close</button></div>
-          </div>
-        )}
-        <div className="card anim-fadeUp-1">
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
-            <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>🔔 Notification Log</span>
-          </div>
-          {log.length === 0 ? (
-            <div style={{ padding: 32, textAlign: "center", color: C.muted, fontSize: 13 }}>
-              No alerts triggered yet.<br />Prices are being monitored live.
-            </div>
-          ) : log.map(l => (
-            <div key={l.id} style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, animation: "fadeIn 0.3s ease" }}>
-              <div style={{ fontSize: 13, color: C.text }}>🔔 {l.msg}</div>
-              <div className="mono" style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>€{l.price} · {l.time}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── AI ANALYSE TAB ───────────────────────────────────────────────────────────
-function AIAnalyseTab({ user, prices }) {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult]   = useState(null);
-  const [holdings] = useStorage(`holdings_${user.email}`, []);
-
-  const runAnalysis = async () => {
-    if (user.plan === "free") { alert("AI Analyse is beschikbaar in Pro en Elite. Upgrade je plan."); return; }
-    setLoading(true); setResult(null);
     try {
-      const portfolioSummary = holdings.map(h => {
-        const p = prices[h.ticker] || { price: h.avgBuy, change: 0, name: h.ticker };
-        const pct = ((p.price - h.avgBuy) / h.avgBuy * 100).toFixed(1);
-        return `${h.ticker} (${p.name}): ${h.shares} aandelen, aankoopprijs €${h.avgBuy}, huidige koers €${p.price.toFixed(2)}, P&L: ${pct}%`;
-      }).join("\n");
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{
-            role: "user",
-            content: `Je bent een ervaren beleggingsanalist. Analyseer dit portfolio en geef een bondige analyse in het Nederlands. Gebruik emoji's voor leesbaarheid. Structuur: 1) Korte samenvatting 2) Sterke punten 3) Risico's 4) Top 2 aanbevelingen. Max 300 woorden. Houd het praktisch en concreet.
-
-Portfolio:
-${portfolioSummary || "Geen posities toegevoegd."}
-
-Marktsituatie mei 2026: AI-sector sterk, Europese halfgeleiders onder druk van exportrestricties, energietransitie groeit.`
-          }]
-        })
-      });
-      const data = await response.json();
-      setResult(data.content?.[0]?.text || "Analyse kon niet worden geladen.");
-    } catch {
-      setResult("❌ Kon geen verbinding maken met AI. Probeer opnieuw.");
-    }
+      if (mode === "signup") {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password: pass, options: { data: { name } } });
+        if (signUpError) { setError(signUpError.message); setLoading(false); return; }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("profiles").update({ name, plan }).eq("id", user.id);
+          onAuth({ id: user.id, email, name, plan, created_at: new Date().toISOString() });
+        }
+      } else {
+        const { error: signInError, data } = await supabase.auth.signInWithPassword({ email, password: pass });
+        if (signInError) { setError(signInError.message); setLoading(false); return; }
+        if (data.user) {
+          const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+          onAuth(profile || { id: data.user.id, email, name: email.split("@")[0], plan: "free", created_at: new Date().toISOString() });
+        }
+      }
+    } catch { setError("Something went wrong. Please try again."); }
     setLoading(false);
   };
 
-  return (
-    <div style={{ maxWidth: 720 }}>
-      <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>🤖 AI Portfolio Analysis</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>Powered by Claude · {user.plan === "free" ? "Upgrade required" : "Pro/Elite available"}</div>
-          </div>
-          <button className="btn-primary" onClick={runAnalysis} disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: 8, opacity: user.plan === "free" ? 0.5 : 1 }}>
-            {loading ? <><Spinner /> Analyzing...</> : "▶ Analyze now"}
-          </button>
-        </div>
-        <div style={{ padding: "16px 24px" }}>
-          {!result && !loading && (
-            <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
-              <div style={{ fontSize: 14 }}>Click "Analyze now" for an AI analysis of your portfolio.</div>
-              {user.plan === "free" && <div style={{ fontSize: 13, color: C.accent, marginTop: 8 }}>Upgrade to Pro to use AI analysis.</div>}
-            </div>
-          )}
-          {loading && (
-            <div style={{ textAlign: "center", padding: "32px 0", color: C.muted }}>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Spinner /></div>
-              <div style={{ fontSize: 14 }}>AI is analyzing your portfolio...</div>
-            </div>
-          )}
-          {result && (
-            <div style={{ fontSize: 14, lineHeight: 1.8, color: C.text, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{result}</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) { setError(error.message); setGoogleLoading(false); }
+  };
 
-// ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function SettingsTab({ user, onUpgrade, onLogout }) {
-  const currentPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
-  return (
-    <div style={{ maxWidth: 680 }}>
-      <div className="card anim-fadeUp" style={{ marginBottom: 16 }}>
-        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Account</span>
+  return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: C.bg }}>
+    <div className="card anim-fadeUp" style={{ width: "100%", maxWidth: 440, padding: 36 }}>
+      {/* Logo + Theme picker */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>◈</div>
+          <span className="syne" style={{ fontSize: 17, fontWeight: 800 }}>StockPulse</span>
         </div>
-        <div style={{ padding: 24, display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.accent + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: C.accent }}>
-            {user.name[0].toUpperCase()}
-          </div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>{user.name}</div>
-            <div style={{ fontSize: 13, color: C.muted }}>{user.email}</div>
-            <div style={{ marginTop: 4 }}><Badge color={currentPlan.color}>{currentPlan.name.toUpperCase()} PLAN</Badge></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card anim-fadeUp-1" style={{ marginBottom: 16 }}>
-        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="syne" style={{ fontWeight: 700, fontSize: 14 }}>Plan upgraden</span>
-        </div>
-        <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-          {PLANS.filter(p => p.id !== user.plan).map(plan => (
-            <div key={plan.id} className="card" style={{ padding: 16, border: `1px solid ${plan.color}44` }}>
-              <div style={{ color: plan.color, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{plan.name}</div>
-              <div className="mono" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-                {plan.price === 0 ? "Gratis" : `€${plan.price}/mnd`}
-              </div>
-              {plan.features.slice(0, 3).map((f, i) => (
-                <div key={i} style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>✓ {f}</div>
-              ))}
-              <button className="btn-primary" onClick={() => onUpgrade(plan.id)} style={{ width: "100%", marginTop: 12, fontSize: 13, padding: "9px", background: plan.id === "elite" ? C.gold : C.accent }}>
-                Upgraden →
-              </button>
-            </div>
+        {/* Inline theme switcher */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {Object.entries(THEME_LABELS).map(([key, { preview }]) => (
+            <button key={key} onClick={() => onThemeChange(key)}
+              title={THEME_LABELS[key].label}
+              style={{ width: 20, height: 20, borderRadius: "50%", background: preview, border: `2px solid ${currentTheme === key ? C.accent : C.border}`, cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
           ))}
         </div>
       </div>
 
-      <div className="card anim-fadeUp-2" style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 14, color: C.muted }}>Uitloggen van je account</div>
-        <button className="btn-ghost" onClick={onLogout} style={{ color: C.red, borderColor: C.red + "44" }}>Uitloggen</button>
+      <div className="syne" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
+        {mode === "login" ? t.welcomeBack : t.createAccount}
       </div>
-    </div>
-  );
-}
+      <div style={{ fontSize: 14, color: C.muted, marginBottom: 28 }}>
+        {mode === "login" ? t.loginSub : t.signupSub}
+      </div>
 
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function App() {
-  const prices = useLivePrices();
-  const [user, setUser]   = useStorage("sp_user", null);
-  const [page, setPage]   = useState("landing"); // landing | login | signup | app
-  const [tab, setTab]     = useState("portfolio");
+      {/* Google login button */}
+      <button onClick={handleGoogle} disabled={googleLoading}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "11px 20px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.text, cursor: "pointer", fontSize: 14, fontWeight: 500, marginBottom: 16, transition: "all 0.2s" }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = C.accent}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = C.border}>
+        {googleLoading ? <Spinner /> : <>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          {t.orGoogle} Google
+        </>}
+      </button>
 
-  const handleAuth = (userData) => { setUser(userData); setPage("app"); };
-  const handleLogout = () => { setUser(null); setPage("landing"); };
-  const handleUpgrade = (planId) => {
-    const plan = PLANS.find(p => p.id === planId);
-    if (planId !== "free") {
-      alert(`💳 Stripe checkout zou hier openen voor het ${plan.name} plan (€${plan.price}/mnd).\n\nIn productie: integreer Stripe Checkout voor betalingen.`);
-    }
-    setUser(prev => ({ ...prev, plan: planId }));
-  };
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ flex: 1, height: 1, background: C.border }} />
+        <span style={{ fontSize: 12, color: C.muted }}>of</span>
+        <div style={{ flex: 1, height: 1, background: C.border }} />
+      </div>
 
-  useEffect(() => { if (user) setPage("app"); }, []);
-
-  const TABS = [
-    { id: "portfolio", label: "📊 Portfolio" },
-    { id: "markt",    label: "🌐 Markt" },
-    { id: "alerts",   label: "🔔 Alerts" },
-    { id: "ai",       label: "🤖 AI Analyse", pro: true },
-    { id: "settings", label: "⚙️ Account" },
-  ];
-
-  if (page === "landing") return (<><style>{GLOBAL_STYLE}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>);
-  if (page === "login")   return (<><style>{GLOBAL_STYLE}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} /></>);
-  if (page === "signup")  return (<><style>{GLOBAL_STYLE}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} /></>);
-
-  return (
-    <div style={{ minHeight: "100vh" }}>
-      <style>{GLOBAL_STYLE}</style>
-
-      {/* Header */}
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, animation: "glow 3s ease infinite" }}>◈</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {mode === "signup" && <input className="input-field" placeholder={t.name} value={name} onChange={e => setName(e.target.value)} />}
+        <input className="input-field" type="email" placeholder={t.email} value={email} onChange={e => setEmail(e.target.value)} />
+        <input className="input-field" type="password" placeholder={t.password} value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+        {mode === "signup" && (
           <div>
-            <div className="syne" style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5 }}>StockPulse</div>
-            <div style={{ fontSize: 10, color: C.muted, fontFamily: "JetBrains Mono" }}>PORTFOLIO PRO</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t.choosePlan}:</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {PLANS.map(p => (
+                <button key={p.id} onClick={() => setPlan(p.id as Profile["plan"])}
+                  style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `1px solid ${plan === p.id ? p.color : C.border}`, background: plan === p.id ? p.color + "22" : "transparent", color: plan === p.id ? p.color : C.muted, cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.2s" }}>
+                  {p.name}<br /><span className="mono" style={{ fontSize: 11 }}>{p.price === 0 ? "Gratis" : `€${p.price}/mo`}</span>
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+        {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
+          {loading ? <><Spinner /> {mode === "login" ? t.loggingIn : t.creatingAccount}</> : mode === "login" ? t.loginBtn : t.signupBtn}
+        </button>
+        <div style={{ textAlign: "center", fontSize: 13, color: C.muted }}>
+          {mode === "login" ? t.noAccount : t.hasAccount}
+          <span style={{ color: C.accent, cursor: "pointer" }} onClick={onSwitch}>{mode === "login" ? t.signupFree : t.login}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Dot color={C.green} ping />
-            <span style={{ fontSize: 12, color: C.muted }}>Live</span>
-          </div>
-          <Badge color={PLANS.find(p => p.id === user?.plan)?.color || C.muted}>{(user?.plan || "free").toUpperCase()}</Badge>
-          <div style={{ fontSize: 13, color: C.mutedLight }}>👤 {user?.name}</div>
-        </div>
-      </div>
-
-      <TickerBanner prices={prices} />
-
-      {/* Nav */}
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "10px 28px", display: "flex", gap: 4, overflowX: "auto" }}>
-        {TABS.map(t => (
-          <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}
-            style={{ position: "relative" }}>
-            {t.label}
-            {t.pro && user?.plan === "free" && <span style={{ marginLeft: 4, fontSize: 10, color: C.gold }}>PRO</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div style={{ padding: "28px", maxWidth: 1300, margin: "0 auto" }}>
-        {tab === "portfolio" && <PortfolioTab prices={prices} user={user} />}
-        {tab === "markt"     && <MarketTab    prices={prices} />}
-        {tab === "alerts"    && <AlertsTab    prices={prices} user={user} />}
-        {tab === "ai"        && <AIAnalyseTab prices={prices} user={user} />}
-        {tab === "settings"  && <SettingsTab  user={user} onUpgrade={handleUpgrade} onLogout={handleLogout} />}
       </div>
     </div>
-  );
+  </div>;
 }
