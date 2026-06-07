@@ -124,6 +124,57 @@ const PLANS = [
   { id: "elite", name: "Elite", price: 49, color: C.gold,   features: ["Everything in Pro", "Priority support", "API access", "Weekly report"] },
 ];
 
+
+// ─── LANGUAGE DETECTION ───────────────────────────────────────────────────────
+type Lang = "nl" | "en";
+function detectLang(): Lang {
+  return navigator.language?.startsWith("nl") ? "nl" : "en";
+}
+
+// ─── LANDING COPY (bilingual) ─────────────────────────────────────────────────
+const LANDING_COPY = {
+  nl: {
+    badge: "Live koersen · Wereldwijd",
+    h1a: "Investeer slimmer.",
+    h1b: "Verdien meer.",
+    sub: "Portefeuillebeheer met live koersen, slimme alerts en AI-analyse. Gebouwd voor serieuze beleggers wereldwijd.",
+    cta: "Gratis starten →",
+    login: "Inloggen",
+    noCard: "Geen creditcard nodig · Gratis plan altijd beschikbaar",
+    features: [
+      { icon: "📊", title: "Portefeuille bijhouden", desc: "Volg al je posities op één plek. Live P&L, rendement en uitsplitsing per sector." },
+      { icon: "🔔", title: "Slimme alerts", desc: "Stel prijsalerts in en word direct gewaarschuwd als je doelkoers bereikt wordt." },
+      { icon: "🤖", title: "AI-marktanalyse", desc: "AI-analyse van je portefeuille met kansen en risico's per positie." },
+      { icon: "🌍", title: "Wereldwijde markten", desc: "AEX, Nasdaq, NYSE, LSE — alles op één dashboard. Meerdere valuta's." },
+    ],
+    pricingTitle: "Eenvoudige prijzen",
+    pricingSub: "Start gratis, upgrade wanneer je wilt.",
+    planFree: "Gratis starten",
+    planTrial: "14 dagen gratis proberen",
+    mostPopular: "MEEST POPULAIR",
+  },
+  en: {
+    badge: "Live prices · Worldwide",
+    h1a: "Invest smarter.",
+    h1b: "Earn more.",
+    sub: "Portfolio tracker with live prices, smart alerts and AI analysis. Built for serious investors worldwide.",
+    cta: "Start for free →",
+    login: "Log in",
+    noCard: "No credit card required · Free plan always available",
+    features: [
+      { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
+      { icon: "🔔", title: "Smart Alerts", desc: "Set price alerts and get notified instantly when your target price is reached." },
+      { icon: "🤖", title: "AI Market Analysis", desc: "AI analysis of your portfolio with opportunities and risks per position." },
+      { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE, LSE — everything on one dashboard. Multiple currencies." },
+    ],
+    pricingTitle: "Simple pricing",
+    pricingSub: "Start free, upgrade when you're ready.",
+    planFree: "Get started free",
+    planTrial: "Try 14 days free",
+    mostPopular: "MOST POPULAR",
+  },
+};
+
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface PriceData { price: number; change: number; name: string; sector: string; }
 interface ChatMessage { role: "user" | "assistant"; content: string; }
@@ -221,33 +272,27 @@ function TickerBanner({ prices }: { prices: Record<string, PriceData> }) {
 }
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
-function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+function LandingPage({ onLogin, onSignup, lang }: { onLogin: () => void; onSignup: () => void; lang: Lang }) {
+  const t = LANDING_COPY[lang];
   return <div style={{ minHeight: "100vh" }}>
     <div style={{ padding: "80px 40px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 600, background: `radial-gradient(circle, ${C.accent}0a 0%, transparent 70%)`, pointerEvents: "none" }} />
       <div className="anim-fadeUp" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 100, padding: "6px 16px", fontSize: 12, color: C.accent, marginBottom: 28, fontWeight: 500 }}>
-        <Dot color={C.green} ping /> Live prices · Worldwide
+        <Dot color={C.green} ping /> {t.badge}
       </div>
       <h1 className="syne anim-fadeUp-1" style={{ fontSize: "clamp(40px, 6vw, 72px)", fontWeight: 800, lineHeight: 1.05, marginBottom: 20, letterSpacing: -2 }}>
-        Invest smarter.<br /><span style={{ color: C.accent }}>Earn more.</span>
+        {t.h1a}<br /><span style={{ color: C.accent }}>{t.h1b}</span>
       </h1>
-      <p className="anim-fadeUp-2" style={{ fontSize: 18, color: C.mutedLight, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.6 }}>
-        Portfolio tracker with live prices, smart alerts and AI analysis. Built for serious investors worldwide.
-      </p>
+      <p className="anim-fadeUp-2" style={{ fontSize: 18, color: C.mutedLight, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.6 }}>{t.sub}</p>
       <div className="anim-fadeUp-3" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <button className="btn-primary" onClick={onSignup} style={{ padding: "14px 32px", fontSize: 15 }}>Start for free →</button>
-        <button className="btn-ghost" onClick={onLogin}>Log in</button>
+        <button className="btn-primary" onClick={onSignup} style={{ padding: "14px 32px", fontSize: 15 }}>{t.cta}</button>
+        <button className="btn-ghost" onClick={onLogin}>{t.login}</button>
       </div>
-      <p className="anim-fadeUp-4" style={{ fontSize: 12, color: C.muted, marginTop: 16 }}>No credit card required · Free plan always available</p>
+      <p className="anim-fadeUp-4" style={{ fontSize: 12, color: C.muted, marginTop: 16 }}>{t.noCard}</p>
     </div>
     <div style={{ padding: "0 40px 60px", maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        {[
-          { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
-          { icon: "🔔", title: "Smart Alerts", desc: "Set price alerts and get notified instantly when your target price is reached." },
-          { icon: "🤖", title: "AI Market Analysis", desc: "AI analysis of your portfolio with opportunities and risks per position." },
-          { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE, LSE — everything on one dashboard. Multiple currencies." },
-        ].map((f, i) => (
+        {t.features.map((f, i) => (
           <div key={i} className="card card-hover" style={{ padding: 24, transition: "all 0.2s" }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
             <div className="syne" style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{f.title}</div>
@@ -257,12 +302,12 @@ function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () 
       </div>
     </div>
     <div style={{ padding: "0 40px 80px", maxWidth: 900, margin: "0 auto" }}>
-      <h2 className="syne" style={{ textAlign: "center", fontSize: 36, fontWeight: 800, marginBottom: 8, letterSpacing: -1 }}>Simple pricing</h2>
-      <p style={{ textAlign: "center", color: C.muted, fontSize: 15, marginBottom: 40 }}>Start free, upgrade when you're ready.</p>
+      <h2 className="syne" style={{ textAlign: "center", fontSize: 36, fontWeight: 800, marginBottom: 8, letterSpacing: -1 }}>{t.pricingTitle}</h2>
+      <p style={{ textAlign: "center", color: C.muted, fontSize: 15, marginBottom: 40 }}>{t.pricingSub}</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
         {PLANS.map(plan => (
           <div key={plan.id} className="card" style={{ padding: "28px 24px", border: `1px solid ${plan.id === "pro" ? C.accent + "66" : C.border}`, position: "relative" }}>
-            {plan.id === "pro" && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: C.accent, color: "white", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 100 }}>MOST POPULAR</div>}
+            {plan.id === "pro" && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: C.accent, color: "white", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 100 }}>{t.mostPopular}</div>}
             <div style={{ color: plan.color, fontSize: 13, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{plan.name}</div>
             <div className="mono" style={{ fontSize: 36, fontWeight: 700, marginBottom: 4 }}>
               {plan.price === 0 ? "Free" : `€${plan.price}`}
@@ -272,7 +317,7 @@ function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () 
             {plan.features.map((f, j) => <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.mutedLight, marginBottom: 8 }}><span style={{ color: plan.color }}>✓</span> {f}</div>)}
             <button className={plan.id === "pro" ? "btn-primary" : "btn-ghost"} onClick={onSignup}
               style={{ width: "100%", marginTop: 20, background: plan.id === "elite" ? C.goldDim : undefined, color: plan.id === "elite" ? C.gold : undefined, borderColor: plan.id === "elite" ? C.gold + "44" : undefined }}>
-              {plan.price === 0 ? "Get started free" : "Try 14 days free"}
+              {plan.price === 0 ? t.planFree : t.planTrial}
             </button>
           </div>
         ))}
@@ -304,6 +349,7 @@ const AUTH_COPY = {
     fillFields: "Vul alle velden in.",
     enterName: "Vul je naam in.",
     free: "Gratis",
+    theme: "Thema",
   },
   en: {
     welcomeBack: "Welcome back",
@@ -326,17 +372,18 @@ const AUTH_COPY = {
     fillFields: "Please fill in all fields.",
     enterName: "Please enter your name.",
     free: "Free",
+    theme: "Theme",
   },
 };
 
-function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange }: {
+function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange, lang }: {
   mode: "login" | "signup";
   onAuth: (u: Profile) => void;
   onSwitch: () => void;
   currentTheme: string;
   onThemeChange: (t: string) => void;
+  lang: Lang;
 }) {
-  const lang = navigator.language?.startsWith("nl") ? "nl" : "en";
   const t = AUTH_COPY[lang];
   const [email, setEmail] = useState("");
   const [pass, setPass]   = useState("");
@@ -387,11 +434,14 @@ function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange }: {
           <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>◈</div>
           <span className="syne" style={{ fontSize: 17, fontWeight: 800 }}>StockPulse</span>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {Object.entries(THEME_LABELS).map(([key, { label, preview }]) => (
-            <button key={key} onClick={() => onThemeChange(key)} title={label}
-              style={{ width: 20, height: 20, borderRadius: "50%", background: preview, border: `2px solid ${currentTheme === key ? C.accent : C.border}`, cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
+          <span style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 500 }}>{t.theme}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Object.entries(THEME_LABELS).map(([key, { label, preview }]) => (
+              <button key={key} onClick={() => onThemeChange(key)} title={label}
+                style={{ width: 20, height: 20, borderRadius: "50%", background: preview, border: `2px solid ${currentTheme === key ? C.accent : C.border}`, cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
+            ))}
+          </div>
         </div>
       </div>
       <div className="syne" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{mode === "login" ? t.welcomeBack : t.createAccount}</div>
@@ -1667,6 +1717,9 @@ function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange,
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
+  // Detect language once at app level — consistent across landing + auth
+  const [lang] = useState<Lang>(() => detectLang());
+
   const [user, setUser] = useState<Profile | null>(null);
   const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("sp_theme") || "dark");
   C = THEMES[currentTheme] || THEMES.dark;
@@ -1758,9 +1811,9 @@ export default function App() {
   ];
 
   if (checkingAuth) return <><style>{makeGlobalStyle(C)}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
-  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>;
-  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} currentTheme={currentTheme} onThemeChange={handleThemeChange} /></>;
-  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} currentTheme={currentTheme} onThemeChange={handleThemeChange} /></>;
+  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} lang={lang} /></>;
+  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
+  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
 
   return <div style={{ minHeight: "100vh" }}>
     <style>{makeGlobalStyle(C)}</style>
