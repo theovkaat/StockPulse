@@ -378,7 +378,7 @@ const AUTH_COPY = {
 
 function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange, lang }: {
   mode: "login" | "signup";
-  onAuth: (u: Profile) => void;
+  onAuth: (u: Profile, isSignup?: boolean) => void;
   onSwitch: () => void;
   currentTheme: string;
   onThemeChange: (t: string) => void;
@@ -404,7 +404,7 @@ function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange, lang }:
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase.from("profiles").update({ name, plan }).eq("id", user.id);
-          onAuth({ id: user.id, email, name, plan, created_at: new Date().toISOString() });
+          onAuth({ id: user.id, email, name, plan, created_at: new Date().toISOString() }, true);
         }
       } else {
         const { error: signInError, data } = await supabase.auth.signInWithPassword({ email, password: pass });
@@ -1715,6 +1715,167 @@ function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange,
   </div>;
 }
 
+
+// ─── ONBOARDING PAGE ──────────────────────────────────────────────────────────
+function OnboardingPage({ user, prices, onDone, lang }: { user: Profile; prices: Record<string, PriceData>; onDone: () => void; lang: Lang }) {
+  const [step, setStep] = useState<"welcome" | "import" | "done">("welcome");
+  const [preview, setPreview] = useState<ParsedPosition[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const copy = {
+    nl: {
+      title: "Welkom bij StockPulse!",
+      sub: "Importeer je portefeuille om direct te beginnen, of voeg later handmatig posities toe.",
+      importBtn: "📁 Portefeuille importeren (CSV)",
+      skipBtn: "Overslaan, later toevoegen →",
+      supported: "Ondersteund: Lynx/IBKR · DEGIRO · Universeel CSV",
+      found: (n: number) => `✅ ${n} posities gevonden — klik om te importeren`,
+      importing: "Importeren...",
+      importConfirm: (n: number) => `✅ ${n} posities importeren`,
+      cancel: "Annuleren",
+      successTitle: "Portefeuille geïmporteerd!",
+      successSub: "Je posities zijn toegevoegd. Ga naar je dashboard.",
+      goToDashboard: "Naar dashboard →",
+      dragDrop: "Klik om je CSV te selecteren",
+      dragSub: "of sleep hier naartoe",
+      step2Title: "Portefeuille importeren",
+    },
+    en: {
+      title: "Welcome to StockPulse!",
+      sub: "Import your portfolio to get started instantly, or add positions manually later.",
+      importBtn: "📁 Import portfolio (CSV)",
+      skipBtn: "Skip, I'll add manually →",
+      supported: "Supported: Lynx/IBKR · DEGIRO · Universal CSV",
+      found: (n: number) => `✅ Found ${n} positions — click to import`,
+      importing: "Importing...",
+      importConfirm: (n: number) => `✅ Import ${n} positions`,
+      cancel: "Cancel",
+      successTitle: "Portfolio imported!",
+      successSub: "Your positions have been added. Head to your dashboard.",
+      goToDashboard: "Go to dashboard →",
+      dragDrop: "Click to select your CSV file",
+      dragSub: "or drag and drop here",
+      step2Title: "Import portfolio",
+    },
+  };
+  const t = copy[lang];
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(""); setPreview([]);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const positions = parseCSV(text);
+      if (positions.length === 0) {
+        setError("Could not parse this CSV. Please use a Lynx/DEGIRO export or a CSV with ticker, shares and price columns.");
+      } else {
+        setPreview(positions);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const doImport = async () => {
+    setImporting(true);
+    const limit = user.plan === "free" ? 5 : 999;
+    const toImport = preview.slice(0, limit);
+    const rows = toImport.map(p => ({ user_id: user.id, ticker: p.ticker, name: p.name, shares: p.shares, avg_buy: p.avgBuy || 0 }));
+    await supabase.from("holdings").insert(rows);
+    setImporting(false);
+    setImported(true);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 500 }}>
+        {/* Progress dots */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 32 }}>
+          {["welcome", "import", "done"].map((s, i) => (
+            <div key={i} style={{ width: step === s ? 24 : 8, height: 8, borderRadius: 4, background: step === s ? C.accent : C.border, transition: "all 0.3s" }} />
+          ))}
+        </div>
+
+        {step === "welcome" && (
+          <div className="card anim-fadeUp" style={{ padding: 40, textAlign: "center" }}>
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px", animation: "glow 3s ease infinite" }}>◈</div>
+            <div className="syne" style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>{t.title}</div>
+            <div style={{ fontSize: 15, color: C.mutedLight, lineHeight: 1.6, marginBottom: 32 }}>{t.sub}</div>
+            <button className="btn-primary" onClick={() => setStep("import")} style={{ width: "100%", padding: "13px 24px", fontSize: 15, marginBottom: 12 }}>{t.importBtn}</button>
+            <button onClick={onDone} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, width: "100%", padding: "10px 0" }}>{t.skipBtn}</button>
+          </div>
+        )}
+
+        {step === "import" && !imported && (
+          <div className="card anim-fadeUp" style={{ padding: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <button onClick={() => { setStep("welcome"); setPreview([]); setError(""); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>←</button>
+              <div className="syne" style={{ fontWeight: 700, fontSize: 16 }}>{t.step2Title}</div>
+            </div>
+
+            <div style={{ background: C.accentDim, border: `1px solid ${C.accent}33`, borderRadius: 10, padding: "8px 14px", marginBottom: 16, fontSize: 12, color: C.mutedLight }}>
+              ✅ {t.supported}
+            </div>
+
+            {!preview.length && (
+              <>
+                <div onClick={() => fileRef.current?.click()}
+                  style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "36px 20px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", background: C.surface, marginBottom: 12 }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📂</div>
+                  <div style={{ fontSize: 14, color: C.text, marginBottom: 4 }}>{t.dragDrop}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{t.dragSub}</div>
+                </div>
+                <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
+                {error && <div style={{ fontSize: 13, color: C.red, background: C.redDim, padding: "10px 14px", borderRadius: 8 }}>{error}</div>}
+                <button onClick={onDone} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, width: "100%", padding: "12px 0", marginTop: 4 }}>{t.skipBtn}</button>
+              </>
+            )}
+
+            {preview.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, color: C.green, marginBottom: 10 }}>{t.found(preview.length)}</div>
+                <div style={{ maxHeight: 220, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 16 }}>
+                  <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "8px 14px", fontSize: 11, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+                    <span>TICKER</span><span style={{ textAlign: "right" }}>SHARES</span><span style={{ textAlign: "right" }}>AVG PRICE</span>
+                  </div>
+                  {preview.map((p, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "9px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13 }}>
+                      <span style={{ fontWeight: 600 }}>{p.ticker}</span>
+                      <span className="mono" style={{ textAlign: "right", color: C.mutedLight }}>{p.shares}</span>
+                      <span className="mono" style={{ textAlign: "right", color: p.avgBuy > 0 ? C.text : C.muted }}>{p.avgBuy > 0 ? `€${p.avgBuy.toFixed(2)}` : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn-primary" onClick={doImport} disabled={importing} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    {importing ? <><Spinner /> {t.importing}</> : t.importConfirm(preview.length)}
+                  </button>
+                  <button className="btn-ghost" onClick={() => { setPreview([]); setError(""); if (fileRef.current) fileRef.current.value = ""; }}>{t.cancel}</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {imported && (
+          <div className="card anim-fadeUp" style={{ padding: 40, textAlign: "center" }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+            <div className="syne" style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{t.successTitle}</div>
+            <div style={{ fontSize: 14, color: C.mutedLight, marginBottom: 28 }}>{t.successSub}</div>
+            <button className="btn-primary" onClick={onDone} style={{ padding: "13px 28px", fontSize: 15 }}>{t.goToDashboard}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   // Detect language once at app level — consistent across landing + auth
@@ -1728,7 +1889,7 @@ export default function App() {
     localStorage.setItem("sp_theme", theme);
     setCurrentTheme(theme);
   };
-  const [page, setPage] = useState<"landing" | "login" | "signup" | "app">("landing");
+  const [page, setPage] = useState<"landing" | "login" | "signup" | "onboarding" | "app">("landing");
   const [tab, setTab]   = useState("portfolio");
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -1771,7 +1932,7 @@ export default function App() {
     });
   }, []);
 
-  const handleAuth = (u: Profile) => { setUser(u); setPage("app"); };
+  const handleAuth = (u: Profile, isSignup = false) => { setUser(u); setPage(isSignup ? "onboarding" : "app"); };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("landing"); };
   const handlePromoApplied = (planId: string) => {
     setUser(prev => prev ? { ...prev, plan: planId as Profile["plan"] } : prev);
@@ -1811,6 +1972,7 @@ export default function App() {
   ];
 
   if (checkingAuth) return <><style>{makeGlobalStyle(C)}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
+  if (page === "onboarding") return <><style>{makeGlobalStyle(C)}</style><OnboardingPage user={user!} prices={prices} onDone={() => setPage("app")} lang={lang} /></>;
   if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} lang={lang} /></>;
   if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
   if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
