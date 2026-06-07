@@ -125,54 +125,26 @@ const PLANS = [
 ];
 
 
-// ─── LANGUAGE DETECTION ───────────────────────────────────────────────────────
-type Lang = "nl" | "en";
-function detectLang(): Lang {
-  return navigator.language?.startsWith("nl") ? "nl" : "en";
-}
-
 // ─── LANDING COPY (bilingual) ─────────────────────────────────────────────────
 const LANDING_COPY = {
-  nl: {
-    badge: "Live koersen · Wereldwijd",
-    h1a: "Investeer slimmer.",
-    h1b: "Verdien meer.",
-    sub: "Portefeuillebeheer met live koersen, slimme alerts en AI-analyse. Gebouwd voor serieuze beleggers wereldwijd.",
-    cta: "Gratis starten →",
-    login: "Inloggen",
-    noCard: "Geen creditcard nodig · Gratis plan altijd beschikbaar",
-    features: [
-      { icon: "📊", title: "Portefeuille bijhouden", desc: "Volg al je posities op één plek. Live P&L, rendement en uitsplitsing per sector." },
-      { icon: "🔔", title: "Slimme alerts", desc: "Stel prijsalerts in en word direct gewaarschuwd als je doelkoers bereikt wordt." },
-      { icon: "🤖", title: "AI-marktanalyse", desc: "AI-analyse van je portefeuille met kansen en risico's per positie." },
-      { icon: "🌍", title: "Wereldwijde markten", desc: "AEX, Nasdaq, NYSE, LSE — alles op één dashboard. Meerdere valuta's." },
-    ],
-    pricingTitle: "Eenvoudige prijzen",
-    pricingSub: "Start gratis, upgrade wanneer je wilt.",
-    planFree: "Gratis starten",
-    planTrial: "14 dagen gratis proberen",
-    mostPopular: "MEEST POPULAIR",
-  },
-  en: {
-    badge: "Live prices · Worldwide",
-    h1a: "Invest smarter.",
-    h1b: "Earn more.",
-    sub: "Portfolio tracker with live prices, smart alerts and AI analysis. Built for serious investors worldwide.",
-    cta: "Start for free →",
-    login: "Log in",
-    noCard: "No credit card required · Free plan always available",
-    features: [
-      { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
-      { icon: "🔔", title: "Smart Alerts", desc: "Set price alerts and get notified instantly when your target price is reached." },
-      { icon: "🤖", title: "AI Market Analysis", desc: "AI analysis of your portfolio with opportunities and risks per position." },
-      { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE, LSE — everything on one dashboard. Multiple currencies." },
-    ],
-    pricingTitle: "Simple pricing",
-    pricingSub: "Start free, upgrade when you're ready.",
-    planFree: "Get started free",
-    planTrial: "Try 14 days free",
-    mostPopular: "MOST POPULAR",
-  },
+  badge: "Live prices · Worldwide",
+  h1a: "Invest smarter.",
+  h1b: "Earn more.",
+  sub: "Portfolio tracker with live prices, smart alerts and AI analysis. Built for serious investors worldwide.",
+  cta: "Start for free →",
+  login: "Log in",
+  noCard: "No credit card required · Free plan always available",
+  features: [
+    { icon: "📊", title: "Portfolio Tracking", desc: "Track all your positions in one place. Live P&L, returns and breakdown by sector." },
+    { icon: "🔔", title: "Smart Alerts", desc: "Set price alerts and get notified instantly when your target price is reached." },
+    { icon: "🤖", title: "AI Market Analysis", desc: "AI analysis of your portfolio with opportunities and risks per position." },
+    { icon: "🌍", title: "Global Markets", desc: "AEX, Nasdaq, NYSE, LSE — everything on one dashboard. Multiple currencies." },
+  ],
+  pricingTitle: "Simple pricing",
+  pricingSub: "Start free, upgrade when you're ready.",
+  planFree: "Get started free",
+  planTrial: "Try 14 days free",
+  mostPopular: "MOST POPULAR",
 };
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -272,8 +244,8 @@ function TickerBanner({ prices }: { prices: Record<string, PriceData> }) {
 }
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
-function LandingPage({ onLogin, onSignup, lang }: { onLogin: () => void; onSignup: () => void; lang: Lang }) {
-  const t = LANDING_COPY[lang];
+function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+  const t = LANDING_COPY;
   return <div style={{ minHeight: "100vh" }}>
     <div style={{ padding: "80px 40px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 600, background: `radial-gradient(circle, ${C.accent}0a 0%, transparent 70%)`, pointerEvents: "none" }} />
@@ -328,63 +300,37 @@ function LandingPage({ onLogin, onSignup, lang }: { onLogin: () => void; onSignu
 
 // ─── AUTH FORM ────────────────────────────────────────────────────────────────
 const AUTH_COPY = {
-  nl: {
-    welcomeBack: "Welkom terug",
-    createAccount: "Maak je account aan",
-    loginSub: "Log in op je StockPulse account",
-    signupSub: "Gratis starten, upgrade wanneer je wilt",
-    namePlaceholder: "Jouw naam",
-    emailPlaceholder: "E-mailadres",
-    passwordPlaceholder: "Wachtwoord",
-    choosePlan: "Kies je plan",
-    loginBtn: "Inloggen →",
-    signupBtn: "Account aanmaken →",
-    loggingIn: "Inloggen...",
-    creatingAccount: "Account aanmaken...",
-    noAccount: "Nog geen account? ",
-    hasAccount: "Al een account? ",
-    signupFree: "Gratis registreren",
-    loginLink: "Inloggen",
-    orWith: "of ga verder met",
-    fillFields: "Vul alle velden in.",
-    enterName: "Vul je naam in.",
-    free: "Gratis",
-    theme: "Thema",
-  },
-  en: {
-    welcomeBack: "Welcome back",
-    createAccount: "Create your account",
-    loginSub: "Log in to your StockPulse account",
-    signupSub: "Start free, upgrade whenever you want",
-    namePlaceholder: "Your name",
-    emailPlaceholder: "Email address",
-    passwordPlaceholder: "Password",
-    choosePlan: "Choose your plan",
-    loginBtn: "Log in →",
-    signupBtn: "Create account →",
-    loggingIn: "Logging in...",
-    creatingAccount: "Creating account...",
-    noAccount: "No account yet? ",
-    hasAccount: "Already have an account? ",
-    signupFree: "Sign up free",
-    loginLink: "Log in",
-    orWith: "or continue with",
-    fillFields: "Please fill in all fields.",
-    enterName: "Please enter your name.",
-    free: "Free",
-    theme: "Theme",
-  },
+  welcomeBack: "Welcome back",
+  createAccount: "Create your account",
+  loginSub: "Log in to your StockPulse account",
+  signupSub: "Start free, upgrade whenever you want",
+  namePlaceholder: "Your name",
+  emailPlaceholder: "Email address",
+  passwordPlaceholder: "Password",
+  choosePlan: "Choose your plan",
+  loginBtn: "Log in →",
+  signupBtn: "Create account →",
+  loggingIn: "Logging in...",
+  creatingAccount: "Creating account...",
+  noAccount: "No account yet? ",
+  hasAccount: "Already have an account? ",
+  signupFree: "Sign up free",
+  loginLink: "Log in",
+  orWith: "or continue with",
+  fillFields: "Please fill in all fields.",
+  enterName: "Please enter your name.",
+  free: "Free",
+  theme: "Theme",
 };
 
-function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange, lang }: {
+function AuthForm({ mode, onAuth, onSwitch, currentTheme, onThemeChange }: {
   mode: "login" | "signup";
   onAuth: (u: Profile, isSignup?: boolean) => void;
   onSwitch: () => void;
   currentTheme: string;
   onThemeChange: (t: string) => void;
-  lang: Lang;
 }) {
-  const t = AUTH_COPY[lang];
+  const t = AUTH_COPY;
   const [email, setEmail] = useState("");
   const [pass, setPass]   = useState("");
   const [name, setName]   = useState("");
@@ -1717,7 +1663,7 @@ function SettingsTab({ user, onUpgrade, onPromoApplied, onLogout, onThemeChange,
 
 
 // ─── ONBOARDING PAGE ──────────────────────────────────────────────────────────
-function OnboardingPage({ user, prices, onDone, lang }: { user: Profile; prices: Record<string, PriceData>; onDone: () => void; lang: Lang }) {
+function OnboardingPage({ user, prices, onDone }: { user: Profile; prices: Record<string, PriceData>; onDone: () => void }) {
   const [step, setStep] = useState<"welcome" | "import" | "done">("welcome");
   const [preview, setPreview] = useState<ParsedPosition[]>([]);
   const [importing, setImporting] = useState(false);
@@ -1725,43 +1671,23 @@ function OnboardingPage({ user, prices, onDone, lang }: { user: Profile; prices:
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const copy = {
-    nl: {
-      title: "Welkom bij StockPulse!",
-      sub: "Importeer je portefeuille om direct te beginnen, of voeg later handmatig posities toe.",
-      importBtn: "📁 Portefeuille importeren (CSV)",
-      skipBtn: "Overslaan, later toevoegen →",
-      supported: "Ondersteund: Lynx/IBKR · DEGIRO · Universeel CSV",
-      found: (n: number) => `✅ ${n} posities gevonden — klik om te importeren`,
-      importing: "Importeren...",
-      importConfirm: (n: number) => `✅ ${n} posities importeren`,
-      cancel: "Annuleren",
-      successTitle: "Portefeuille geïmporteerd!",
-      successSub: "Je posities zijn toegevoegd. Ga naar je dashboard.",
-      goToDashboard: "Naar dashboard →",
-      dragDrop: "Klik om je CSV te selecteren",
-      dragSub: "of sleep hier naartoe",
-      step2Title: "Portefeuille importeren",
-    },
-    en: {
-      title: "Welcome to StockPulse!",
-      sub: "Import your portfolio to get started instantly, or add positions manually later.",
-      importBtn: "📁 Import portfolio (CSV)",
-      skipBtn: "Skip, I'll add manually →",
-      supported: "Supported: Lynx/IBKR · DEGIRO · Universal CSV",
-      found: (n: number) => `✅ Found ${n} positions — click to import`,
-      importing: "Importing...",
-      importConfirm: (n: number) => `✅ Import ${n} positions`,
-      cancel: "Cancel",
-      successTitle: "Portfolio imported!",
-      successSub: "Your positions have been added. Head to your dashboard.",
-      goToDashboard: "Go to dashboard →",
-      dragDrop: "Click to select your CSV file",
-      dragSub: "or drag and drop here",
-      step2Title: "Import portfolio",
-    },
+  const t = {
+    title: "Welcome to StockPulse!",
+    sub: "Import your portfolio to get started instantly, or add positions manually later.",
+    importBtn: "📁 Import portfolio (CSV)",
+    skipBtn: "Skip, I'll add manually →",
+    supported: "Supported: Lynx/IBKR · DEGIRO · Universal CSV",
+    found: (n: number) => `✅ Found ${n} positions — click to import`,
+    importing: "Importing...",
+    importConfirm: (n: number) => `✅ Import ${n} positions`,
+    cancel: "Cancel",
+    successTitle: "Portfolio imported!",
+    successSub: "Your positions have been added. Head to your dashboard.",
+    goToDashboard: "Go to dashboard →",
+    dragDrop: "Click to select your CSV file",
+    dragSub: "or drag and drop here",
+    step2Title: "Import portfolio",
   };
-  const t = copy[lang];
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1878,9 +1804,6 @@ function OnboardingPage({ user, prices, onDone, lang }: { user: Profile; prices:
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  // Detect language once at app level — consistent across landing + auth
-  const [lang] = useState<Lang>(() => detectLang());
-
   const [user, setUser] = useState<Profile | null>(null);
   const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("sp_theme") || "dark");
   C = THEMES[currentTheme] || THEMES.dark;
@@ -1972,10 +1895,10 @@ export default function App() {
   ];
 
   if (checkingAuth) return <><style>{makeGlobalStyle(C)}</style><div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div></>;
-  if (page === "onboarding") return <><style>{makeGlobalStyle(C)}</style><OnboardingPage user={user!} prices={prices} onDone={() => setPage("app")} lang={lang} /></>;
-  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} lang={lang} /></>;
-  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
-  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} currentTheme={currentTheme} onThemeChange={handleThemeChange} lang={lang} /></>;
+  if (page === "onboarding") return <><style>{makeGlobalStyle(C)}</style><OnboardingPage user={user!} prices={prices} onDone={() => setPage("app")} /></>;
+  if (page === "landing") return <><style>{makeGlobalStyle(C)}</style><LandingPage onLogin={() => setPage("login")} onSignup={() => setPage("signup")} /></>;
+  if (page === "login")   return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="login"  onAuth={handleAuth} onSwitch={() => setPage("signup")} currentTheme={currentTheme} onThemeChange={handleThemeChange} /></>;
+  if (page === "signup")  return <><style>{makeGlobalStyle(C)}</style><AuthForm mode="signup" onAuth={handleAuth} onSwitch={() => setPage("login")} currentTheme={currentTheme} onThemeChange={handleThemeChange} /></>;
 
   return <div style={{ minHeight: "100vh" }}>
     <style>{makeGlobalStyle(C)}</style>
